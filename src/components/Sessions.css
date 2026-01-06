@@ -1,0 +1,241 @@
+.sessions-container {
+  background: transparent;
+  padding: 0;
+}
+
+.sessions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.new-session-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--border-color);
+  color: var(--accent-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.3rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.new-session-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+  transform: scale(1.05);
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.session-card {
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.session-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+}
+
+.session-card.active {
+  border-color: var(--accent-primary);
+  background: #2d3a31;
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 10px;
+}
+
+.session-header h3 {
+  font-size: 0.95rem;
+  margin: 0;
+  flex: 1;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.status-badge {
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.status-badge.active {
+  color: var(--accent-primary);
+}
+
+.status-badge.completed {
+  color: #6b7280;
+}
+
+.session-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-meta,
+.session-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.session-date,
+.session-tracks,
+.collaborators,
+.duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Grid View for Projects Page */
+.projects-grid-container {
+  padding: 20px;
+}
+
+.projects-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.projects-header h2 {
+  font-size: 1.8rem;
+  color: var(--text-primary);
+}
+
+.new-project-btn {
+  padding: 10px 20px;
+  background: var(--accent-primary);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.new-project-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.project-card {
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 2px solid transparent;
+}
+
+.project-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border-color: var(--border-color);
+}
+
+.project-card.active {
+  border-color: var(--accent-primary);
+}
+
+.project-thumbnail {
+  height: 120px;
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-tertiary) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.project-waveform {
+  font-family: monospace;
+  font-size: 1.5rem;
+  color: var(--accent-primary);
+  letter-spacing: 2px;
+}
+
+.project-info {
+  padding: 15px;
+}
+
+.project-info h3 {
+  font-size: 1rem;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.session-id-display {
+  font-size: 0.75rem;
+  color: var(--accent-primary);
+  font-family: 'Courier New', monospace;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.project-meta {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.project-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+.project-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.project-status {
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.project-status.active {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--accent-primary);
+}
+
+.project-status.completed {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6b7280;
+}

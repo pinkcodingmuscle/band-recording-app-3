@@ -1,0 +1,606 @@
+.recording-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+/* Transport Bar */
+.transport-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.transport-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.transport-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: var(--border-color);
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transport-btn:hover {
+  background: var(--border-light);
+  transform: scale(1.05);
+}
+
+.transport-btn.play {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.transport-btn.play:hover {
+  background: var(--accent-hover);
+}
+
+.transport-btn.play.playing {
+  background: var(--warning);
+}
+
+.transport-btn.record {
+  background: var(--border-color);
+  color: var(--danger);
+}
+
+.transport-btn.record:hover {
+  background: var(--border-light);
+}
+
+.transport-btn.record.recording {
+  background: var(--danger);
+  color: white;
+  animation: recordBlink 1s infinite;
+}
+
+@keyframes recordBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.time-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.time-separator {
+  color: var(--text-muted);
+}
+
+.transport-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.tempo-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tempo-control label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.tempo-control input {
+  width: 60px;
+  padding: 6px 8px;
+  background: var(--border-color);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--border-color);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.zoom-control button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 1.2rem;
+  transition: background 0.2s;
+}
+
+.zoom-control button:hover {
+  background: var(--border-light);
+}
+
+.zoom-control span {
+  min-width: 50px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+/* DAW Workspace */
+.daw-workspace {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg-primary);
+}
+
+.timeline-header {
+  display: flex;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.track-controls-header {
+  width: 240px;
+  padding: 10px 15px;
+  border-right: 1px solid var(--border-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.timeline-ruler {
+  flex: 1;
+  display: flex;
+  position: relative;
+  height: 40px;
+  background: var(--bg-tertiary);
+  min-width: 800px;
+}
+
+.timeline-marker {
+  flex: 1;
+  border-left: 1px solid var(--border-color);
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-primary);
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -6px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--accent-primary);
+}
+
+/* Tracks Area */
+.tracks-area {
+  min-height: 300px;
+}
+
+.daw-track {
+  display: flex;
+  border-bottom: 1px solid var(--bg-tertiary);
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.daw-track:hover {
+  background: #222;
+}
+
+.daw-track.selected {
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--accent-primary);
+}
+
+.daw-track.muted {
+  opacity: 0.5;
+}
+
+.track-controls-panel {
+  width: 240px;
+  padding: 12px 15px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.track-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.track-name-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.track-icon {
+  font-size: 1.2rem;
+}
+
+.track-name-input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 4px 6px;
+  border-radius: 4px;
+  flex: 1;
+}
+
+.track-name-input:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+.track-name-input:focus {
+  outline: none;
+  background: var(--bg-tertiary);
+  border-color: var(--accent-primary);
+}
+
+.comment-badge {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  background: var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.comment-badge:hover {
+  background: var(--border-light);
+}
+
+.track-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.track-toggle,
+.track-action {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.track-toggle:hover,
+.track-action:hover {
+  background: var(--border-light);
+}
+
+.track-toggle.active {
+  background: var(--warning);
+  color: white;
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.volume-slider {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-color);
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  cursor: pointer;
+  border: none;
+}
+
+.volume-value {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 25px;
+}
+
+.delete-track-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.delete-track-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.track-timeline {
+  flex: 1;
+  padding: 12px;
+  min-width: 800px;
+  position: relative;
+}
+
+.track-region {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-hover) 100%);
+  border-radius: 6px;
+  padding: 8px 12px;
+  width: 60%;
+  position: relative;
+  overflow: hidden;
+}
+
+.waveform-display {
+  font-family: monospace;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.region-label {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 0.8rem;
+  color: white;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.empty-workspace {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  text-align: center;
+  gap: 10px;
+}
+
+.empty-workspace p:first-child {
+  font-size: 2rem;
+}
+
+.add-track-section {
+  padding: 15px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+}
+
+.add-track-btn {
+  padding: 10px 20px;
+  background: var(--border-color);
+  border: 1px dashed var(--border-light);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.add-track-btn:hover {
+  background: var(--border-light);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+/* Bottom Panel */
+.bottom-panel {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  height: 180px;
+  overflow: hidden;
+}
+
+.panel-tabs {
+  display: flex;
+  gap: 5px;
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.panel-tab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.panel-tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.panel-tab.active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--accent-primary);
+}
+
+.instruments-grid {
+  display: flex;
+  gap: 10px;
+  padding: 15px;
+  overflow-x: auto;
+}
+
+.instrument-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 80px;
+}
+
+.instrument-btn:hover {
+  background: var(--border-color);
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+.instrument-icon {
+  font-size: 2rem;
+}
+
+.instrument-btn span:last-child {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Recording Overlay */
+.recording-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.recording-modal {
+  background: var(--bg-tertiary);
+  border-radius: 20px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.recording-pulse-indicator {
+  width: 60px;
+  height: 60px;
+  background: var(--danger);
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  animation: recordingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes recordingPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+}
+
+.recording-modal h3 {
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  color: var(--text-primary);
+}
+
+.recording-time-large {
+  font-family: 'Courier New', monospace;
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--danger);
+  margin-bottom: 30px;
+}
+
+.stop-recording-btn {
+  padding: 15px 40px;
+  background: var(--danger);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stop-recording-btn:hover {
+  background: var(--danger-hover);
+  transform: scale(1.05);
+}
