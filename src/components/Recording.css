@@ -68,9 +68,28 @@
   animation: recordBlink 1s infinite;
 }
 
+.transport-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.transport-btn:disabled:hover {
+  transform: none;
+}
+
 @keyframes recordBlink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
+}
+
+.transport-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.transport-btn:disabled:hover {
+  transform: none;
+  background: var(--border-color);
 }
 
 .time-display {
@@ -91,6 +110,32 @@
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+.mic-status {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.mic-indicator {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.mic-indicator.granted {
+  color: var(--accent-primary);
+}
+
+.mic-indicator.denied {
+  color: var(--danger);
+}
+
+.mic-indicator.unknown {
+  color: var(--text-muted);
 }
 
 .tempo-control {
@@ -233,7 +278,14 @@
   background: var(--bg-secondary);
   border-left: 3px solid var(--accent-primary);
 }
+.daw-track.armed {
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid var(--danger);
+}
 
+.daw-track.armed.selected {
+  background: rgba(239, 68, 68, 0.15);
+}
 .daw-track.muted {
   opacity: 0.5;
 }
@@ -288,6 +340,17 @@
   border-color: var(--accent-primary);
 }
 
+.armed-badge {
+  background: var(--danger);
+  color: white;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  animation: armPulse 1.5s infinite;
+}
+
 .comment-badge {
   font-size: 0.75rem;
   padding: 2px 6px;
@@ -318,6 +381,45 @@
   font-size: 0.75rem;
   font-weight: 600;
   transition: all 0.2s;
+}
+
+.track-toggle.arm-btn {
+  width: auto;
+  padding: 4px 10px;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  background: transparent;
+}
+
+.track-toggle.arm-btn.active {
+  background: var(--danger);
+  color: white;
+  animation: armPulse 1.5s infinite;
+}
+
+.track-toggle.play-btn {
+  width: auto;
+  padding: 4px 10px;
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  background: transparent;
+  font-size: 0.9rem;
+}
+
+.track-toggle.play-btn.active {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.track-toggle.play-btn:disabled,
+.track-toggle.arm-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+@keyframes armPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
 }
 
 .track-toggle:hover,
@@ -585,7 +687,19 @@
   font-size: 3rem;
   font-weight: 700;
   color: var(--danger);
-  margin-bottom: 30px;
+  margin-bottom: 15px;
+}
+
+.recording-status {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  animation: fadeInOut 2s infinite;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .stop-recording-btn {
