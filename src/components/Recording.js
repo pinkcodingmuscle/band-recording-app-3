@@ -1,53 +1,62 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './Recording.css';
+import './RecordingComments.css';
+import CommentRail from './CommentRail';
+import AddCommentModal from './AddCommentModal';
+import { useComments } from '../context/CommentsContext';
+import { saveAudioBlob, loadAudioBlob, deleteAudioBlob } from '../db/audioDB';
 
-function Recording({ isRecording, setIsRecording, activeSession }) {
+const TRACKS_KEY = 'bandlab-tracks-v1';
+const SEED_TRACKS = [
+  { id: 1, name: 'Lead Guitar', duration: '3:45', waveform: '▁▂▃▅▆▇█▇▆▅▃▂▁', status: 'recorded', volume: 75, muted: false, solo: false, audioUrl: null, audioExt: null, hasAudio: false },
+  { id: 2, name: 'Bass Line',   duration: '3:42', waveform: '▂▃▄▅▃▂▁▂▃▄▃▂',   status: 'recorded', volume: 80, muted: false, solo: false, audioUrl: null, audioExt: null, hasAudio: false },
+  { id: 3, name: 'Drums',       duration: '3:48', waveform: '█▇▆▅▆▇█▆▅▄▃▂',   status: 'recorded', volume: 70, muted: false, solo: false, audioUrl: null, audioExt: null, hasAudio: false },
+  { id: 4, name: 'Vocals',      duration: '3:40', waveform: '▃▄▅▆▅▄▃▂▃▄▅▄',   status: 'recorded', volume: 85, muted: false, solo: false, audioUrl: null, audioExt: null, hasAudio: false },
+];
+
+function loadSavedTracks() {
+  try {
+    const raw = localStorage.getItem(TRACKS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return null;
+}
+
+function Recording({ activeSession, currentUser }) {
+  const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [playheadPosition, setPlayheadPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [selectedTrack, setSelectedTrack] = useState(null);
-  const [tracks, setTracks] = useState([
-    { id: 1, name: 'Lead Guitar', duration: '3:45', waveform: '▁▂▃▅▆▇█▇▆▅▃▂▁', status: 'recorded', volume: 75, muted: false, solo: false, comments: 2 },
-    { id: 2, name: 'Bass Line', duration: '3:42', waveform: '▂▃▄▅▃▂▁▂▃▄▃▂', status: 'recorded', volume: 80, muted: false, solo: false, comments: 1 },
-    { id: 3, name: 'Drums', duration: '3:48', waveform: '█▇▆▅▆▇█▆▅▄▃▂', status: 'recorded', volume: 70, muted: false, solo: false, comments: 3 },
-    { id: 4, name: 'Vocals', duration: '3:40', waveform: '▃▄▅▆▅▄▃▂▃▄▅▄', status: 'recorded', volume: 85, muted: false, solo: false, comments: 0 }
-  ]);
-  const [currentTrackName, setCurrentTrackName] = useState('');
+  const [commentModal, setCommentModal] = useState(null);
+  const [trackNameModal, setTrackNameModal] = useState({ open: false, value: '' });
+  const { showComments, autoplayComments, toggleShowComments, toggleAutoplay, getCommentsForTrack } = useComments();
+  const [tracks, setTracks] = useState(() => loadSavedTracks() ?? SEED_TRACKS);
   const intervalRef = useRef(null);
   const playIntervalRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const micStreamRef = useRef(null);
+  const pendingTrackNameRef = useRef('');
+  const isCapturingAudioRef = useRef(false);
+  const recordingTimeRef = useRef(0);
+  // { [trackId]: HTMLAudioElement }
+  const audioNodesRef = useRef({});
 
+  // Only manages the seconds-counter; track creation happens in handleStopRecording
   useEffect(() => {
     if (isRecording) {
+      recordingTimeRef.current = 0;
+      setRecordingTime(0);
       intervalRef.current = setInterval(() => {
+        recordingTimeRef.current += 1;
         setRecordingTime(prev => prev + 1);
       }, 1000);
     } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      if (recordingTime > 0 && currentTrackName) {
-        const newTrack = {
-          id: tracks.length + 1,
-          name: currentTrackName,
-          duration: formatTime(recordingTime),
-          waveform: '▁▂▃▄▅▆▇█▇▆▅▄▃▂▁',
-          status: 'recorded',
-          volume: 75,
-          muted: false,
-          solo: false,
-          comments: 0
-        };
-        setTracks([...tracks, newTrack]);
-        setRecordingTime(0);
-        setCurrentTrackName('');
-      }
+      clearInterval(intervalRef.current);
     }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
+    return () => clearInterval(intervalRef.current);
   }, [isRecording]);
 
   useEffect(() => {
@@ -73,62 +82,262 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
     };
   }, [isPlaying]);
 
+  // ── Persist track metadata to localStorage (strip blob URLs — ephemeral) ──
+  useEffect(() => {
+    const toSave = tracks.map(({ audioUrl, ...rest }) => rest);
+    localStorage.setItem(TRACKS_KEY, JSON.stringify(toSave));
+  }, [tracks]);
+
+  // ── On mount: rehydrate blob URLs from IndexedDB for tracks with hasAudio ──
+  useEffect(() => {
+    let cancelled = false;
+    async function rehydrate() {
+      // Snapshot the IDs that need rehydration at mount time
+      const savedTracks = loadSavedTracks() ?? SEED_TRACKS;
+      const toRehydrate = savedTracks.filter((t) => t.hasAudio);
+      if (toRehydrate.length === 0) return;
+
+      const rehydrated = new Map();
+      await Promise.all(
+        toRehydrate.map(async (track) => {
+          try {
+            const blob = await loadAudioBlob(track.id);
+            if (blob && !cancelled) {
+              rehydrated.set(track.id, URL.createObjectURL(blob));
+            }
+          } catch { /* ignore */ }
+        })
+      );
+      if (!cancelled && rehydrated.size > 0) {
+        // Functional update: only patch tracks that existed at mount;
+        // any tracks recorded after mount are left untouched.
+        setTracks((prev) =>
+          prev.map((t) =>
+            rehydrated.has(t.id) ? { ...t, audioUrl: rehydrated.get(t.id) } : t
+          )
+        );
+      }
+    }
+    rehydrate();
+    return () => { cancelled = true; };
+  }, []); // run once on mount — eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Sync HTMLAudioElement nodes whenever tracks change ──
+  useEffect(() => {
+    tracks.forEach((track) => {
+      if (!track.audioUrl) return;
+      if (!audioNodesRef.current[track.id]) {
+        const audio = new Audio(track.audioUrl);
+        audio.preload = 'auto';
+        audioNodesRef.current[track.id] = audio;
+      }
+      // Always sync volume
+      audioNodesRef.current[track.id].volume = track.muted ? 0 : track.volume / 100;
+    });
+    // Remove nodes for deleted tracks
+    const idSet = new Set(tracks.map((t) => String(t.id)));
+    Object.keys(audioNodesRef.current).forEach((key) => {
+      if (!idSet.has(key)) {
+        audioNodesRef.current[key].pause();
+        delete audioNodesRef.current[key];
+      }
+    });
+  }, [tracks]);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // ── Audio helpers ──
+  const stopAllAudio = useCallback(() => {
+    Object.values(audioNodesRef.current).forEach((a) => { a.pause(); a.currentTime = 0; });
+  }, []);
+
+  const pauseAllAudio = useCallback(() => {
+    Object.values(audioNodesRef.current).forEach((a) => a.pause());
+  }, []);
+
+  const playAudioForTracks = useCallback((trackList) => {
+    const soloActive = trackList.some((t) => t.solo);
+    trackList.forEach((track) => {
+      const node = audioNodesRef.current[track.id];
+      if (!node) return;
+      const shouldPlay = soloActive ? track.solo : !track.muted;
+      if (shouldPlay) {
+        node.volume = track.volume / 100;
+        node.play().catch(() => {/* autoplay blocked */});
+      } else {
+        node.pause();
+      }
+    });
+  }, []);
+
   const handleStartRecording = () => {
-    const trackName = prompt('Enter track name:');
-    if (trackName) {
-      setCurrentTrackName(trackName);
-      setIsRecording(true);
+    setTrackNameModal({ open: true, value: '' });
+  };
+
+  const confirmStartRecording = async () => {
+    const name = trackNameModal.value.trim();
+    setTrackNameModal({ open: false, value: '' });
+    if (!name) return;
+    pendingTrackNameRef.current = name;
+
+    // Attempt real microphone capture via MediaRecorder
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/mp4';
+      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        isCapturingAudioRef.current = false;
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const id = Date.now();
+        const n = pendingTrackNameRef.current;
+        const t = recordingTimeRef.current;
+        pendingTrackNameRef.current = '';
+        // Persist blob to IndexedDB so it survives page refresh
+        try { await saveAudioBlob(id, blob); } catch { /* ignore */ }
+        const audioUrl = URL.createObjectURL(blob);
+        setTracks(prev => [
+          ...prev,
+          {
+            id,
+            name: n,
+            duration: formatTime(t),
+            waveform: '▁▂▃▄▅▆▇█▇▆▅▄▃▂▁',
+            status: 'recorded',
+            volume: 75,
+            muted: false,
+            solo: false,
+            audioUrl,
+            audioExt: ext,
+            hasAudio: true,
+          },
+        ]);
+        setRecordingTime(0);
+      };
+      recorder.start(100);
+      mediaRecorderRef.current = recorder;
+      isCapturingAudioRef.current = true;
+    } catch {
+      // No mic access — timer-only mode; track saved via useEffect
+      mediaRecorderRef.current = null;
+      isCapturingAudioRef.current = false;
     }
+
+    setIsRecording(true);
   };
 
   const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      // MediaRecorder path: recorder.onstop callback will create the track
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    } else {
+      // Timer-only fallback: create the track now using refs (no stale closure)
+      const t = recordingTimeRef.current;
+      const n = pendingTrackNameRef.current;
+      if (t > 0 && n) {
+        setTracks(prev => [
+          ...prev,
+          {
+            id: Date.now(),
+            name: n,
+            duration: formatTime(t),
+            waveform: '▁▂▃▄▅▆▇█▇▆▅▄▃▂▁',
+            status: 'recorded',
+            volume: 75,
+            muted: false,
+            solo: false,
+            audioUrl: null,
+            audioExt: null,
+            hasAudio: false,
+          },
+        ]);
+      }
+      pendingTrackNameRef.current = '';
+    }
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach(t => t.stop());
+      micStreamRef.current = null;
+    }
     setIsRecording(false);
   };
 
   const handlePlay = () => {
-    setIsPlaying(!isPlaying);
+    if (isPlaying) {
+      pauseAllAudio();
+      setIsPlaying(false);
+    } else {
+      playAudioForTracks(tracks);
+      setIsPlaying(true);
+    }
   };
 
   const handleStop = () => {
+    stopAllAudio();
     setIsPlaying(false);
     setPlayheadPosition(0);
   };
 
   const toggleMute = (id) => {
-    setTracks(tracks.map(track => 
-      track.id === id ? { ...track, muted: !track.muted } : track
-    ));
+    setTracks(prev => prev.map((track) => {
+      if (track.id !== id) return track;
+      const nowMuted = !track.muted;
+      const node = audioNodesRef.current[id];
+      if (node) {
+        if (nowMuted) {
+          node.pause();
+        } else if (isPlaying) {
+          node.volume = track.volume / 100;
+          node.play().catch(() => {});
+        }
+      }
+      return { ...track, muted: nowMuted };
+    }));
   };
 
   const toggleSolo = (id) => {
-    setTracks(tracks.map(track => 
-      track.id === id ? { ...track, solo: !track.solo } : track
-    ));
+    setTracks(prev => {
+      const updated = prev.map(track =>
+        track.id === id ? { ...track, solo: !track.solo } : track
+      );
+      if (isPlaying) playAudioForTracks(updated);
+      return updated;
+    });
   };
 
   const updateVolume = (id, volume) => {
-    setTracks(tracks.map(track => 
-      track.id === id ? { ...track, volume: parseInt(volume) } : track
+    const vol = parseInt(volume);
+    setTracks(tracks.map(track =>
+      track.id === id ? { ...track, volume: vol } : track
     ));
+    const node = audioNodesRef.current[id];
+    if (node) node.volume = vol / 100;
   };
 
   const deleteTrack = (id) => {
+    const track = tracks.find(t => t.id === id);
+    if (track?.audioUrl) URL.revokeObjectURL(track.audioUrl);
+    const node = audioNodesRef.current[id];
+    if (node) { node.pause(); delete audioNodesRef.current[id]; }
+    if (track?.hasAudio) deleteAudioBlob(id).catch(() => {});
     setTracks(tracks.filter(track => track.id !== id));
   };
 
-  const addComment = (trackId) => {
-    const comment = prompt('Add a comment on this track:');
-    if (comment) {
-      setTracks(tracks.map(track => 
-        track.id === trackId ? { ...track, comments: track.comments + 1 } : track
-      ));
-    }
+  const openCommentModal = (trackId, timeMs) => {
+    setCommentModal({ trackId, timeMs });
   };
 
   return (
@@ -159,6 +368,23 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
           <span className="time-current">{formatTime(Math.floor(playheadPosition * 2.4))}</span>
           <span className="time-separator">/</span>
           <span className="time-total">4:00</span>
+        </div>
+
+        <div className="comment-controls">
+          <button
+            className={`comment-toggle-btn ${showComments ? 'active' : ''}`}
+            onClick={toggleShowComments}
+            title={showComments ? 'Hide Comments' : 'Show Comments'}
+          >
+            💬
+          </button>
+          <button
+            className={`autoplay-toggle-btn ${autoplayComments ? 'active' : ''}`}
+            onClick={toggleAutoplay}
+            title={autoplayComments ? 'Disable autoplay comments' : 'Enable autoplay comments'}
+          >
+            {autoplayComments ? '🔊' : '🔇'} Autoplay
+          </button>
         </div>
 
         <div className="transport-right">
@@ -203,7 +429,7 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
               <div className="track-controls-panel">
                 <div className="track-header">
                   <div className="track-name-section">
-                    <span className="track-icon">🎵</span>
+                    <span className="track-icon">{track.hasAudio ? '🎙️' : '🎵'}</span>
                     <input 
                       type="text" 
                       value={track.name} 
@@ -215,11 +441,6 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
                       className="track-name-input"
                     />
                   </div>
-                  {track.comments > 0 && (
-                    <span className="comment-badge" onClick={() => addComment(track.id)}>
-                      💬 {track.comments}
-                    </span>
-                  )}
                 </div>
 
                 <div className="track-buttons">
@@ -239,10 +460,12 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
                   </button>
                   <button 
                     className="track-action"
-                    onClick={(e) => { e.stopPropagation(); addComment(track.id); }}
-                    title="Add Comment"
+                    onClick={(e) => { e.stopPropagation(); openCommentModal(track.id, Math.round(playheadPosition * 2400)); }}
+                    title="Add Comment at playhead"
                   >
-                    💬
+                    💬{getCommentsForTrack(track.id).length > 0 && (
+                      <span className="track-comment-badge">{getCommentsForTrack(track.id).length}</span>
+                    )}
                   </button>
                 </div>
 
@@ -258,16 +481,44 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
                   <span className="volume-value">{track.volume}</span>
                 </div>
 
-                <button 
-                  className="delete-track-btn"
-                  onClick={(e) => { e.stopPropagation(); deleteTrack(track.id); }}
-                  title="Delete Track"
-                >
-                  🗑️
-                </button>
+                <div className="track-actions-row">
+                  {track.audioUrl && (
+                    <>
+                      <audio
+                        controls
+                        src={track.audioUrl}
+                        className="track-audio-player"
+                        title={`Play ${track.name}`}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <a
+                        href={track.audioUrl}
+                        download={`${track.name}.${track.audioExt || 'webm'}`}
+                        className="track-download-btn"
+                        title="Download recording"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Download ${track.name}`}
+                      >
+                        ⬇
+                      </a>
+                    </>
+                  )}
+                  <button
+                    className="delete-track-btn"
+                    onClick={(e) => { e.stopPropagation(); deleteTrack(track.id); }}
+                    title="Delete Track"
+                    aria-label={`Delete ${track.name}`}
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
 
               <div className="track-timeline" style={{ width: `${zoom}%` }}>
+                <CommentRail
+                  trackId={track.id}
+                  onAddComment={(tid, tms) => openCommentModal(tid, tms)}
+                />
                 <div className="track-region">
                   <div className="waveform-display">{track.waveform}</div>
                   <span className="region-label">{track.name}</span>
@@ -328,11 +579,72 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
         </div>
       </div>
 
+      {trackNameModal.open && (
+        <div
+          className="track-name-overlay"
+          onClick={() => setTrackNameModal({ open: false, value: '' })}
+          role="presentation"
+        >
+          <div
+            className="track-name-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="New track name"
+          >
+            <h3 className="track-modal-title">🎙️ New Track</h3>
+            <input
+              type="text"
+              className="track-name-input-modal"
+              placeholder="e.g. Lead Guitar, Vocals…"
+              value={trackNameModal.value}
+              autoFocus
+              maxLength={60}
+              onChange={(e) =>
+                setTrackNameModal((m) => ({ ...m, value: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmStartRecording();
+                if (e.key === 'Escape')
+                  setTrackNameModal({ open: false, value: '' });
+              }}
+            />
+            <p className="track-modal-hint">
+              🎤 Microphone access will be requested when recording starts.
+            </p>
+            <div className="track-modal-actions">
+              <button
+                className="modal-btn secondary"
+                onClick={() => setTrackNameModal({ open: false, value: '' })}
+              >
+                Cancel
+              </button>
+              <button
+                className="modal-btn primary"
+                disabled={!trackNameModal.value.trim()}
+                onClick={confirmStartRecording}
+              >
+                Start Recording
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {commentModal && (
+        <AddCommentModal
+          trackId={commentModal.trackId}
+          timeMs={commentModal.timeMs}
+          currentUser={currentUser}
+          onClose={() => setCommentModal(null)}
+        />
+      )}
+
       {isRecording && (
         <div className="recording-overlay">
           <div className="recording-modal">
             <div className="recording-pulse-indicator"></div>
-            <h3>Recording: {currentTrackName}</h3>
+            <h3>Recording: {pendingTrackNameRef.current}</h3>
             <div className="recording-time-large">{formatTime(recordingTime)}</div>
             <button className="stop-recording-btn" onClick={handleStopRecording}>
               Stop Recording

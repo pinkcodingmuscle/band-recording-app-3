@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start React App",
+			"type": "shell",
+			"command": "NODE_OPTIONS=--openssl-legacy-provider npm start",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Vite Dev Server",
+			"type": "shell",
+			"command": "npm start",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

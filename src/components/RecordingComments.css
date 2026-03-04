@@ -1,0 +1,717 @@
+/* ─── Comment Rail ───────────────────────────────────────────── */
+.comment-rail {
+  position: relative;
+  height: 20px;
+  width: 100%;
+  cursor: crosshair;
+  flex-shrink: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 30%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border-bottom: 1px solid var(--border-color);
+}
+
+.comment-rail-hidden {
+  height: 4px;
+  cursor: default;
+  background: transparent;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* ─── Comment Marker ─────────────────────────────────────────── */
+.comment-marker {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  z-index: 20;
+  /* Keep marker on top of overlapping siblings */
+}
+
+.comment-marker:focus {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.comment-marker:hover .marker-tooltip,
+.comment-marker:focus .marker-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+  pointer-events: auto;
+}
+
+.comment-marker.open .marker-tooltip {
+  display: none;
+}
+
+.marker-stem {
+  width: 2px;
+  height: 8px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.comment-marker.text {
+  color: var(--accent-primary);
+}
+
+.comment-marker.audio {
+  color: #a78bfa; /* purple accent for audio */
+}
+
+.comment-marker.cluster {
+  color: var(--warning);
+}
+
+.marker-pin {
+  width: 20px;
+  height: 20px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.comment-marker:hover .marker-pin,
+.comment-marker:focus .marker-pin,
+.comment-marker.open .marker-pin {
+  transform: rotate(-45deg) scale(1.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.cluster-count {
+  transform: rotate(45deg);
+  font-weight: 700;
+  color: white;
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+/* ─── Marker Tooltip ─────────────────────────────────────────── */
+.marker-tooltip {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+  /* don't rotate; inherit no transform from parent */
+  transform-origin: bottom center;
+}
+
+/* ─── Comment Popover ────────────────────────────────────────── */
+.comment-popover {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  width: 260px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  animation: popoverIn 0.15s ease;
+  overflow: hidden;
+}
+
+.comment-popover.flip-left {
+  left: auto;
+  right: 0;
+}
+
+@keyframes popoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
+}
+
+.popover-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.popover-nav button {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 1rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.popover-nav button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.popover-nav button:not(:disabled):hover {
+  background: var(--bg-hover);
+}
+
+.popover-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+  margin-left: auto;
+}
+
+.popover-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.popover-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 6px;
+}
+
+.popover-avatar {
+  font-size: 1.4rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-color);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.popover-author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.popover-author {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.popover-timestamp {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.popover-time-marker {
+  color: var(--accent-primary);
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+}
+
+.popover-text {
+  padding: 8px 12px 12px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.popover-audio {
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.audio-player {
+  width: 100%;
+  height: 36px;
+  accent-color: var(--accent-primary);
+}
+
+.audio-duration {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.popover-actions {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.popover-delete-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 5px;
+  transition: background 0.15s;
+}
+
+.popover-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+/* ─── Add Comment Modal ──────────────────────────────────────── */
+.add-comment-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.add-comment-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  animation: modalIn 0.2s ease;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.modal-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.modal-time {
+  color: var(--accent-primary);
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.modal-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.modal-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.modal-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.modal-tab.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+  background: var(--bg-secondary);
+}
+
+.modal-body {
+  padding: 16px 20px;
+}
+
+.comment-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.93rem;
+  line-height: 1.55;
+  resize: vertical;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.comment-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.comment-textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: var(--bg-hover);
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.char-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.modal-btn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.modal-btn.primary {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.modal-btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.modal-btn.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.modal-btn.secondary {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.modal-btn.secondary:hover {
+  background: var(--border-light);
+}
+
+/* ─── Audio Recorder ─────────────────────────────────────────── */
+.audio-recorder {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.recorder-hint {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.recorder-error {
+  font-size: 0.85rem;
+  color: var(--danger);
+  text-align: center;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+.recorder-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rec-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex-shrink: 0;
+  animation: recPulse 1s ease-in-out infinite;
+}
+
+@keyframes recPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+.rec-time {
+  font-family: 'Courier New', monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.rec-max {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.rec-progress {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  appearance: none;
+  accent-color: var(--danger);
+}
+
+.recorder-preview {
+  width: 100%;
+  accent-color: var(--accent-primary);
+}
+
+.recorder-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.recorder-btn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.recorder-btn.record-start {
+  background: var(--danger);
+  color: white;
+}
+
+.recorder-btn.record-start:hover {
+  background: var(--danger-hover);
+}
+
+.recorder-btn.stop {
+  background: var(--warning);
+  color: white;
+}
+
+.recorder-btn.stop:hover {
+  filter: brightness(0.9);
+}
+
+.recorder-btn.save {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.recorder-btn.save:hover {
+  background: var(--accent-hover);
+}
+
+.recorder-btn.secondary {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.recorder-btn.secondary:hover {
+  background: var(--border-light);
+}
+
+/* ─── Transport bar comment controls ────────────────────────── */
+.comment-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-toggle-btn {
+  padding: 2px 4px;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.15;
+  filter: grayscale(1);
+  transition: opacity 0.15s, filter 0.15s;
+}
+
+.comment-toggle-btn.active {
+  opacity: 0.25;
+  filter: grayscale(0);
+}
+
+.comment-toggle-btn:hover {
+  opacity: 0.6;
+  filter: grayscale(0);
+}
+
+.comment-toggle-btn.active:hover {
+  opacity: 0.7;
+  filter: grayscale(0);
+}
+
+.comment-count-pill {
+  background: var(--accent-primary);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
+.autoplay-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  background: var(--border-color);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.autoplay-toggle-btn.active {
+  background: rgba(167, 139, 250, 0.15);
+  border-color: #a78bfa;
+  color: #a78bfa;
+}
+
+/* ─── Track comment badge (updated) ─────────────────────────── */
+.track-comment-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  margin-left: 3px;
+  background: var(--accent-primary);
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  border-radius: 7px;
+  line-height: 1;
+  vertical-align: middle;
+  pointer-events: none;
+}

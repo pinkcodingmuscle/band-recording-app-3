@@ -5,11 +5,14 @@ import Users from './components/Users';
 import Chat from './components/Chat';
 import Recording from './components/Recording';
 import Login from './components/Login';
+import Dashboard from './components/Dashboard';
+import Setlist from './components/Setlist';
+import BandCalendar from './components/BandCalendar';
+import { CommentsProvider } from './context/CommentsContext';
 
 function App() {
   const [activeSession, setActiveSession] = useState(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [activeTab, setActiveTab] = useState('studio');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [showSidebar, setShowSidebar] = useState(true);
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'dark';
@@ -131,7 +134,7 @@ function App() {
     setSessions([]);
     setUsers([]);
     setActiveSession(null);
-    setActiveTab('studio');
+    setActiveTab('dashboard');
     setNotificationCount(0);
   };
 
@@ -141,6 +144,7 @@ function App() {
   }
 
   return (
+    <CommentsProvider>
     <div className="App">
       {/* Top Navigation Bar */}
       <nav className="top-nav">
@@ -156,6 +160,27 @@ function App() {
         </div>
         
         <div className="nav-tabs">
+          <button
+            className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            <span className="tab-icon">🏠</span>
+            Home
+          </button>
+          <button
+            className={`nav-tab ${activeTab === 'calendar' ? 'active' : ''}`}
+            onClick={() => setActiveTab('calendar')}
+          >
+            <span className="tab-icon">📅</span>
+            Calendar
+          </button>
+          <button
+            className={`nav-tab ${activeTab === 'setlist' ? 'active' : ''}`}
+            onClick={() => setActiveTab('setlist')}
+          >
+            <span className="tab-icon">🎵</span>
+            Setlist
+          </button>
           <button 
             className={`nav-tab ${activeTab === 'studio' ? 'active' : ''}`}
             onClick={() => setActiveTab('studio')}
@@ -233,11 +258,19 @@ function App() {
 
         {/* Main Content Area */}
         <main className="main-content">
+          {activeTab === 'dashboard' && (
+            <Dashboard currentUser={currentUser} users={users} />
+          )}
+          {activeTab === 'calendar' && (
+            <BandCalendar />
+          )}
+          {activeTab === 'setlist' && (
+            <Setlist />
+          )}
           {activeTab === 'studio' && (
             <Recording 
-              isRecording={isRecording}
-              setIsRecording={setIsRecording}
               activeSession={activeSession}
+              currentUser={currentUser}
             />
           )}
           {activeTab === 'projects' && (
@@ -268,6 +301,7 @@ function App() {
         )}
       </div>
     </div>
+    </CommentsProvider>
   );
 }
 
