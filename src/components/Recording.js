@@ -5,14 +5,51 @@ import CommentRail from './CommentRail';
 import AddCommentModal from './AddCommentModal';
 import { useComments } from '../context/CommentsContext';
 import { saveAudioBlob, loadAudioBlob, deleteAudioBlob } from '../db/audioDB';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const TRACKS_KEY = 'bandlab-tracks-v1';
 const SEED_TRACKS = [
-  { id: 1, name: 'Lead Guitar', duration: '3:45', waveform: '▁▂▃▅▆▇█▇▆▅▃▂▁', status: 'recorded', volume: 75, muted: false, solo: false, audioUrl: null, audioExt: null, hasAudio: false },
-  { id: 2, name: 'Bass Line',   duration: '3:42', waveform: '▂▃▄▅▃▂▁▂▃▄▃▂',   status: 'recorded', volume: 80, muted: false, solo: false, audioUrl: null, audioExt: null, hasAudio: false },
-  { id: 3, name: 'Drums',       duration: '3:48', waveform: '█▇▆▅▆▇█▆▅▄▃▂',   status: 'recorded', volume: 70, muted: false, solo: false, audioUrl: null, audioExt: null, hasAudio: false },
-  { id: 4, name: 'Vocals',      duration: '3:40', waveform: '▃▄▅▆▅▄▃▂▃▄▅▄',   status: 'recorded', volume: 85, muted: false, solo: false, audioUrl: null, audioExt: null, hasAudio: false },
+  { id: 1, name: 'Lead Guitar', duration: '3:45', waveform: '▁▂▃▅▆▇█▇▆▅▃▂▁', status: 'recorded', volume: 75, muted: false, solo: false, audioUrl: null, audioExt: null, audioPath: null, hasAudio: false },
+  { id: 2, name: 'Bass Line',   duration: '3:42', waveform: '▂▃▄▅▃▂▁▂▃▄▃▂',   status: 'recorded', volume: 80, muted: false, solo: false, audioUrl: null, audioExt: null, audioPath: null, hasAudio: false },
+  { id: 3, name: 'Drums',       duration: '3:48', waveform: '█▇▆▅▆▇█▆▅▄▃▂',   status: 'recorded', volume: 70, muted: false, solo: false, audioUrl: null, audioExt: null, audioPath: null, hasAudio: false },
+  { id: 4, name: 'Vocals',      duration: '3:40', waveform: '▃▄▅▆▅▄▃▂▃▄▅▄',   status: 'recorded', volume: 85, muted: false, solo: false, audioUrl: null, audioExt: null, audioPath: null, hasAudio: false },
 ];
+
+// Map a DB row (snake_case) → track object (camelCase)
+function rowToTrack(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    duration: row.duration,
+    waveform: row.waveform,
+    status: row.status,
+    volume: row.volume,
+    muted: row.muted,
+    solo: row.solo,
+    hasAudio: row.has_audio,
+    audioPath: row.audio_path,
+    audioExt: row.audio_ext,
+    audioUrl: null, // ephemeral; rehydrated separately
+  };
+}
+
+// Map a track object → DB row (snake_case)
+function trackToRow(track, userId) {
+  return {
+    id: track.id,
+    user_id: userId,
+    name: track.name,
+    duration: track.duration,
+    waveform: track.waveform,
+    status: track.status,
+    volume: track.volume,
+    muted: track.muted,
+    solo: track.solo,
+    has_audio: track.hasAudio,
+    audio_path: track.audioPath || null,
+    audio_ext: track.audioExt || null,
+  };
+}
 
 function loadSavedTracks() {
   try {
@@ -32,7 +69,8 @@ function Recording({ activeSession, currentUser }) {
   const [commentModal, setCommentModal] = useState(null);
   const [trackNameModal, setTrackNameModal] = useState({ open: false, value: '' });
   const { showComments, autoplayComments, toggleShowComments, toggleAutoplay, getCommentsForTrack } = useComments();
-  const [tracks, setTracks] = useState(() => loadSavedTracks() ?? SEED_TRACKS);
+  const [tracks, setTracks] = useState([]);
+  const [tracksLoading, setTracksLoading] = useState(true);
   const intervalRef = useRef(null);
   const playIntervalRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -82,35 +120,71 @@ function Recording({ activeSession, currentUser }) {
     };
   }, [isPlaying]);
 
-  // ── Persist track metadata to localStorage (strip blob URLs — ephemeral) ──
-  useEffect(() => {
-    const toSave = tracks.map(({ audioUrl, ...rest }) => rest);
-    localStorage.setItem(TRACKS_KEY, JSON.stringify(toSave));
-  }, [tracks]);
-
-  // ── On mount: rehydrate blob URLs from IndexedDB for tracks with hasAudio ──
+  // ── On mount: load track metadata from Supabase or localStorage ──
   useEffect(() => {
     let cancelled = false;
+    async function loadTracks() {
+      if (isSupabaseConfigured && currentUser?.id) {
+        const { data, error } = await supabase
+          .from('tracks')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('id');
+        if (!cancelled) {
+          if (!error && data && data.length > 0) {
+            setTracks(data.map(rowToTrack));
+          } else {
+            // First visit: seed Supabase with default tracks
+            const seeds = SEED_TRACKS;
+            await supabase.from('tracks').upsert(seeds.map(t => trackToRow(t, currentUser.id)));
+            if (!cancelled) setTracks(seeds);
+          }
+          setTracksLoading(false);
+        }
+      } else {
+        if (!cancelled) {
+          setTracks(loadSavedTracks() ?? SEED_TRACKS);
+          setTracksLoading(false);
+        }
+      }
+    }
+    loadTracks();
+    return () => { cancelled = true; };
+  }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Persist track metadata whenever tracks change ──
+  useEffect(() => {
+    if (tracksLoading) return;
+    if (isSupabaseConfigured && currentUser?.id) {
+      const rows = tracks.map(t => trackToRow(t, currentUser.id));
+      supabase.from('tracks').upsert(rows).then(() => {}); // fire-and-forget
+    } else {
+      const toSave = tracks.map(({ audioUrl, ...rest }) => rest);
+      localStorage.setItem(TRACKS_KEY, JSON.stringify(toSave));
+    }
+  }, [tracks]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── On mount: rehydrate audio URLs for tracks that have recorded audio ──
+  useEffect(() => {
+    if (tracksLoading) return;
+    let cancelled = false;
     async function rehydrate() {
-      // Snapshot the IDs that need rehydration at mount time
-      const savedTracks = loadSavedTracks() ?? SEED_TRACKS;
-      const toRehydrate = savedTracks.filter((t) => t.hasAudio);
+      const toRehydrate = tracks.filter((t) => t.hasAudio);
       if (toRehydrate.length === 0) return;
 
       const rehydrated = new Map();
       await Promise.all(
         toRehydrate.map(async (track) => {
           try {
-            const blob = await loadAudioBlob(track.id);
-            if (blob && !cancelled) {
-              rehydrated.set(track.id, URL.createObjectURL(blob));
+            // loadAudioBlob now returns a URL string (signed URL or blob: URL)
+            const audioUrl = await loadAudioBlob(track.id, track.audioPath);
+            if (audioUrl && !cancelled) {
+              rehydrated.set(track.id, audioUrl);
             }
           } catch { /* ignore */ }
         })
       );
       if (!cancelled && rehydrated.size > 0) {
-        // Functional update: only patch tracks that existed at mount;
-        // any tracks recorded after mount are left untouched.
         setTracks((prev) =>
           prev.map((t) =>
             rehydrated.has(t.id) ? { ...t, audioUrl: rehydrated.get(t.id) } : t
@@ -120,7 +194,7 @@ function Recording({ activeSession, currentUser }) {
     }
     rehydrate();
     return () => { cancelled = true; };
-  }, []); // run once on mount — eslint-disable-line react-hooks/exhaustive-deps
+  }, [tracksLoading]); // run once after tracks are loaded — eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Sync HTMLAudioElement nodes whenever tracks change ──
   useEffect(() => {
@@ -206,8 +280,9 @@ function Recording({ activeSession, currentUser }) {
         const n = pendingTrackNameRef.current;
         const t = recordingTimeRef.current;
         pendingTrackNameRef.current = '';
-        // Persist blob to IndexedDB so it survives page refresh
-        try { await saveAudioBlob(id, blob); } catch { /* ignore */ }
+        // Persist blob — returns Supabase Storage path or undefined (IndexedDB)
+        let audioPath = null;
+        try { audioPath = await saveAudioBlob(id, blob) ?? null; } catch { /* ignore */ }
         const audioUrl = URL.createObjectURL(blob);
         setTracks(prev => [
           ...prev,
@@ -222,6 +297,7 @@ function Recording({ activeSession, currentUser }) {
             solo: false,
             audioUrl,
             audioExt: ext,
+            audioPath,
             hasAudio: true,
           },
         ]);
@@ -332,7 +408,10 @@ function Recording({ activeSession, currentUser }) {
     if (track?.audioUrl) URL.revokeObjectURL(track.audioUrl);
     const node = audioNodesRef.current[id];
     if (node) { node.pause(); delete audioNodesRef.current[id]; }
-    if (track?.hasAudio) deleteAudioBlob(id).catch(() => {});
+    if (track?.hasAudio) deleteAudioBlob(id, track.audioPath).catch(() => {});
+    if (isSupabaseConfigured && currentUser?.id) {
+      supabase.from('tracks').delete().eq('id', id).then(() => {});
+    }
     setTracks(tracks.filter(track => track.id !== id));
   };
 

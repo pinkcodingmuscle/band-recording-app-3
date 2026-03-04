@@ -1,307 +1,312 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Sessions from './components/Sessions';
-import Users from './components/Users';
 import Chat from './components/Chat';
 import Recording from './components/Recording';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Setlist from './components/Setlist';
 import BandCalendar from './components/BandCalendar';
+import BandSetup from './components/BandSetup';
+import BandRoster from './components/BandRoster';
+import BandApplications from './components/BandApplications';
 import { CommentsProvider } from './context/CommentsContext';
+import { BandProvider, useBand } from './context/BandContext';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 
-function App() {
+// ── AppShell ──────────────────────────────────────────────────────────────────
+// Rendered inside BandProvider so it can call useBand().
+function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
+  const { userBand, pendingApplicationCount } = useBand();
+
   const [activeSession, setActiveSession] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showSidebar, setShowSidebar] = useState(true);
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'dark';
-  });
-  const [currentUser, setCurrentUser] = useState(() => {
-    const savedUser = localStorage.getItem('currentUser');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
-  const [notificationCount, setNotificationCount] = useState(0);
-
-  // Generate dynamic session-based data
   const [sessions, setSessions] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+
+  // Derive real members from the band roster
+  const bandMembers = userBand
+    ? userBand.positions
+        .filter(p => p.filledBy)
+        .map(p => ({
+          id: p.filledBy,
+          name: p.filledByName,
+          role: p.title,
+          avatar: p.filledByAvatar || '🎵',
+          status: p.filledBy === currentUser.id ? 'online' : 'away',
+          sessionId: currentUser.sessionId,
+          displayName: p.filledByName,
+        }))
+    : [];
 
   useEffect(() => {
     if (!currentUser) return;
-
-    // Generate sessions
     const baseDate = new Date();
-    const newSessions = [
-      { 
-        id: 1, 
-        name: `${currentUser.username}'s Recording Session`, 
-        date: baseDate.toISOString().split('T')[0], 
-        tracks: Math.floor(2 + Math.random() * 4), 
-        status: 'active', 
-        collaborators: Math.floor(2 + Math.random() * 4), 
-        duration: `${Math.floor(2 + Math.random() * 4)}:${Math.floor(10 + Math.random() * 50)}`,
-        sessionId: currentUser.sessionId
-      },
-      { 
-        id: 2, 
-        name: 'Collaborative Jam', 
-        date: new Date(baseDate - 86400000 * 2).toISOString().split('T')[0], 
-        tracks: Math.floor(3 + Math.random() * 5), 
-        status: 'active', 
-        collaborators: Math.floor(3 + Math.random() * 3), 
-        duration: `${Math.floor(3 + Math.random() * 3)}:${Math.floor(10 + Math.random() * 50)}`,
-        sessionId: 'sess' + Math.floor(10000 + Math.random() * 90000)
-      },
-      { 
-        id: 3, 
-        name: 'Practice & Rehearsal', 
-        date: new Date(baseDate - 86400000 * 5).toISOString().split('T')[0], 
-        tracks: Math.floor(2 + Math.random() * 3), 
-        status: 'completed', 
-        collaborators: Math.floor(2 + Math.random() * 3), 
-        duration: `${Math.floor(2 + Math.random() * 3)}:${Math.floor(10 + Math.random() * 50)}`,
-        sessionId: 'sess' + Math.floor(10000 + Math.random() * 90000)
-      }
-    ];
-    setSessions(newSessions);
-
-    // Generate users
-    const roles = ['Lead Guitarist', 'Vocalist', 'Drummer', 'Bassist', 'Keyboardist', 'Saxophonist', 'Producer'];
-    const avatars = ['🎸', '🎤', '🥁', '🎵', '🎹', '🎺', '🎧'];
-    const statuses = ['online', 'online', 'online', 'away', 'offline'];
-    const names = ['Alex Chen', 'Sarah Johnson', 'Mike Davis', 'Emma Wilson', 'Tom Martinez', 'Lisa Park', 'James Brown'];
-    
-    // Always include current user
-    const bandMembers = [
+    setSessions([
       {
-        id: currentUser.id,
-        name: currentUser.username,
-        role: 'Session Owner',
-        status: 'online',
-        avatar: currentUser.avatar,
-        tracks: 0,
-        collaborations: 0,
+        id: 1,
+        name: `${currentUser.username}'s Recording Session`,
+        date: baseDate.toISOString().split('T')[0],
+        tracks: 3,
+        status: 'active',
+        collaborators: bandMembers.length,
+        duration: '2:34',
         sessionId: currentUser.sessionId,
-        displayName: currentUser.displayName
-      }
-    ];
+      },
+      {
+        id: 2,
+        name: 'Collaborative Jam',
+        date: new Date(baseDate - 86400000 * 2).toISOString().split('T')[0],
+        tracks: 5,
+        status: 'active',
+        collaborators: 3,
+        duration: '4:12',
+        sessionId: 'sess' + Math.floor(10000 + Math.random() * 90000),
+      },
+      {
+        id: 3,
+        name: 'Practice & Rehearsal',
+        date: new Date(baseDate - 86400000 * 5).toISOString().split('T')[0],
+        tracks: 2,
+        status: 'completed',
+        collaborators: 2,
+        duration: '3:05',
+        sessionId: 'sess' + Math.floor(10000 + Math.random() * 90000),
+      },
+    ]);
+  }, [currentUser?.id]);
 
-    // Generate 3-5 random band members
-    const numMembers = Math.floor(3 + Math.random() * 3);
-    for (let i = 0; i < numMembers; i++) {
-      const name = names[i % names.length];
-      const sessionId = 'sess' + Math.floor(10000 + Math.random() * 90000);
-      bandMembers.push({
-        id: Date.now() + i,
-        name: name,
-        role: roles[i % roles.length],
-        status: statuses[Math.floor(Math.random() * statuses.length)],
-        avatar: avatars[i % avatars.length],
-        tracks: Math.floor(5 + Math.random() * 15),
-        collaborations: Math.floor(3 + Math.random() * 10),
-        sessionId: sessionId,
-        displayName: `${name.replace(' ', '')}-${sessionId}`
-      });
-    }
+  useEffect(() => {
+    const handleResize = () => {
+      const w = window.innerWidth;
+      setWindowWidth(w);
+      if (w < 768) setShowSidebar(false);
+    };
+    if (window.innerWidth < 768) setShowSidebar(false);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-    setUsers(bandMembers);
-  }, [currentUser]);
+  const isMobile = windowWidth < 768;
+
+  // Band gate — show onboarding if user has no confirmed position
+  if (!userBand) {
+    return <BandSetup currentUser={currentUser} />;
+  }
+
+  return (
+    <CommentsProvider currentUser={currentUser}>
+      <div className="App">
+        {/* Top Navigation Bar */}
+        <nav className="top-nav">
+          <div className="nav-left">
+            <button className="menu-toggle" onClick={() => setShowSidebar(!showSidebar)}>
+              ☰
+            </button>
+            <h1 className="app-logo">🎵 BandLab Studio</h1>
+            <div className="session-info">
+              <span className="session-label">Session:</span>
+              <span className="session-id">{currentUser.sessionId}</span>
+            </div>
+          </div>
+
+          <div className="nav-tabs">
+            <button
+              className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+              onClick={() => setActiveTab('dashboard')}
+            >
+              <span className="tab-icon">🏠</span><span className="tab-label">Home</span>
+            </button>
+            <button
+              className={`nav-tab ${activeTab === 'calendar' ? 'active' : ''}`}
+              onClick={() => setActiveTab('calendar')}
+            >
+              <span className="tab-icon">📅</span><span className="tab-label">Calendar</span>
+            </button>
+            <button
+              className={`nav-tab ${activeTab === 'setlist' ? 'active' : ''}`}
+              onClick={() => setActiveTab('setlist')}
+            >
+              <span className="tab-icon">🎵</span><span className="tab-label">Setlist</span>
+            </button>
+            <button
+              className={`nav-tab ${activeTab === 'studio' ? 'active' : ''}`}
+              onClick={() => setActiveTab('studio')}
+            >
+              <span className="tab-icon">🎙️</span><span className="tab-label">Studio</span>
+            </button>
+            <button
+              className={`nav-tab ${activeTab === 'projects' ? 'active' : ''}`}
+              onClick={() => setActiveTab('projects')}
+            >
+              <span className="tab-icon">📁</span><span className="tab-label">Projects</span>
+            </button>
+            <button
+              className={`nav-tab ${activeTab === 'community' ? 'active' : ''}`}
+              onClick={() => setActiveTab('community')}
+            >
+              <span className="tab-icon">👥</span><span className="tab-label">Band</span>
+              {pendingApplicationCount > 0 && (
+                <span className="tab-notify-dot">{pendingApplicationCount}</span>
+              )}
+            </button>
+            <button
+              className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
+              onClick={() => setActiveTab('chat')}
+            >
+              <span className="tab-icon">💬</span><span className="tab-label">Chat</span>
+            </button>
+          </div>
+
+          <div className="nav-right">
+            <button
+              className="nav-btn"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+            <button className="nav-btn notification-bell" title="Notifications">
+              🔔
+              {pendingApplicationCount > 0 && (
+                <span className="notification-badge">{pendingApplicationCount}</span>
+              )}
+            </button>
+            <button className="nav-btn">⚙️</button>
+            <div className="user-profile">
+              <span className="user-name">{currentUser.username}</span>
+              <span className="user-session-id">{currentUser.sessionId}</span>
+            </div>
+            <button className="logout-btn" onClick={onLogout} title="Logout">
+              🚪
+            </button>
+          </div>
+        </nav>
+
+        {isMobile && showSidebar && (
+          <div className="sidebar-backdrop" onClick={() => setShowSidebar(false)} />
+        )}
+
+        <div className="app-workspace">
+          {/* Sidebar */}
+          {showSidebar && (
+            <aside className={`sidebar${isMobile ? ' sidebar-overlay' : ''}`}>
+              {activeTab === 'studio' && (
+                <Sessions
+                  sessions={sessions}
+                  activeSession={activeSession}
+                  onSelectSession={setActiveSession}
+                />
+              )}
+              {activeTab === 'community' && (
+                <BandApplications currentUser={currentUser} />
+              )}
+              {activeTab === 'projects' && (
+                <Sessions
+                  sessions={sessions}
+                  activeSession={activeSession}
+                  onSelectSession={setActiveSession}
+                />
+              )}
+            </aside>
+          )}
+
+          {/* Main Content Area */}
+          <main className="main-content">
+            {activeTab === 'dashboard' && (
+              <Dashboard currentUser={currentUser} users={bandMembers} />
+            )}
+            {activeTab === 'calendar' && <BandCalendar />}
+            {activeTab === 'setlist' && <Setlist currentUser={currentUser} />}
+            {activeTab === 'studio' && (
+              <Recording activeSession={activeSession} currentUser={currentUser} />
+            )}
+            {activeTab === 'projects' && (
+              <div className="projects-view">
+                <Sessions
+                  sessions={sessions}
+                  activeSession={activeSession}
+                  onSelectSession={setActiveSession}
+                  viewMode="grid"
+                />
+              </div>
+            )}
+            {activeTab === 'community' && (
+              <BandRoster currentUser={currentUser} />
+            )}
+            {activeTab === 'chat' && (
+              <Chat users={bandMembers} fullScreen={true} />
+            )}
+          </main>
+
+          {/* Right Panel — Studio only */}
+          {activeTab === 'studio' && (
+            <aside className="right-sidebar">
+              <Chat users={bandMembers} compact={true} />
+            </aside>
+          )}
+        </div>
+      </div>
+    </CommentsProvider>
+  );
+}
+
+// ── App (auth + theme owner) ──────────────────────────────────────────────────
+function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  // True while we check for an existing Supabase session on page load
+  const [authLoading, setAuthLoading] = useState(isSupabaseConfigured);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Restore existing Supabase session after page refresh
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem('currentUser');
-    }
-  }, [currentUser]);
+    if (!isSupabaseConfigured) return;
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'dark' ? 'light' : 'dark');
-  };
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const u = session.user;
+        const name = u.user_metadata?.username || u.email?.split('@')[0] || 'User';
+        const avatar = u.user_metadata?.avatar || '😎';
+        const sessionId = 'sess' + Math.floor(10000 + Math.random() * 90000);
+        setCurrentUser({ id: u.id, username: name, email: u.email, avatar, sessionId, displayName: `${name}-${sessionId}` });
+      }
+      setAuthLoading(false);
+    });
 
-  const handleLogin = (user) => {
-    setCurrentUser(user);
-  };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') setCurrentUser(null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (isSupabaseConfigured) await supabase.auth.signOut();
     setCurrentUser(null);
-    setSessions([]);
-    setUsers([]);
-    setActiveSession(null);
-    setActiveTab('dashboard');
-    setNotificationCount(0);
   };
 
-  // Show login screen if not authenticated
+  if (authLoading) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: '1.2rem' }}>Loading…</div>;
+  }
+
   if (!currentUser) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={setCurrentUser} />;
   }
 
   return (
-    <CommentsProvider>
-    <div className="App">
-      {/* Top Navigation Bar */}
-      <nav className="top-nav">
-        <div className="nav-left">
-          <button className="menu-toggle" onClick={() => setShowSidebar(!showSidebar)}>
-            ☰
-          </button>
-          <h1 className="app-logo">🎵 BandLab Studio</h1>
-          <div className="session-info">
-            <span className="session-label">Session:</span>
-            <span className="session-id">{currentUser.sessionId}</span>
-          </div>
-        </div>
-        
-        <div className="nav-tabs">
-          <button
-            className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            <span className="tab-icon">🏠</span>
-            Home
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'calendar' ? 'active' : ''}`}
-            onClick={() => setActiveTab('calendar')}
-          >
-            <span className="tab-icon">📅</span>
-            Calendar
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'setlist' ? 'active' : ''}`}
-            onClick={() => setActiveTab('setlist')}
-          >
-            <span className="tab-icon">🎵</span>
-            Setlist
-          </button>
-          <button 
-            className={`nav-tab ${activeTab === 'studio' ? 'active' : ''}`}
-            onClick={() => setActiveTab('studio')}
-          >
-            <span className="tab-icon">🎙️</span>
-            Studio
-          </button>
-          <button 
-            className={`nav-tab ${activeTab === 'projects' ? 'active' : ''}`}
-            onClick={() => setActiveTab('projects')}
-          >
-            <span className="tab-icon">📁</span>
-            Projects
-          </button>
-          <button 
-            className={`nav-tab ${activeTab === 'community' ? 'active' : ''}`}
-            onClick={() => setActiveTab('community')}
-          >
-            <span className="tab-icon">👥</span>
-            Band
-          </button>
-          <button 
-            className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
-            onClick={() => setActiveTab('chat')}
-          >
-            <span className="tab-icon">💬</span>
-            Chat
-          </button>
-        </div>
-
-        <div className="nav-right">
-          <button className="nav-btn" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
-          <button className="nav-btn notification-bell" title="Notifications">
-            🔔
-            {notificationCount > 0 && <span className="notification-badge">{notificationCount}</span>}
-          </button>
-          <button className="nav-btn">⚙️</button>
-          <div className="user-profile">
-            <span className="user-name">{currentUser.username}</span>
-            <span className="user-session-id">{currentUser.sessionId}</span>
-          </div>
-          <button className="logout-btn" onClick={handleLogout} title="Logout">
-            🚪
-          </button>
-        </div>
-      </nav>
-
-      <div className="app-workspace">
-        {/* Sidebar */}
-        {showSidebar && (
-          <aside className="sidebar">
-            {activeTab === 'studio' && (
-              <>
-                <Sessions 
-                  sessions={sessions} 
-                  activeSession={activeSession}
-                  onSelectSession={setActiveSession}
-                />
-              </>
-            )}
-            {activeTab === 'community' && (
-              <Users users={users} />
-            )}
-            {activeTab === 'projects' && (
-              <Sessions 
-                sessions={sessions} 
-                activeSession={activeSession}
-                onSelectSession={setActiveSession}
-              />
-            )}
-          </aside>
-        )}
-
-        {/* Main Content Area */}
-        <main className="main-content">
-          {activeTab === 'dashboard' && (
-            <Dashboard currentUser={currentUser} users={users} />
-          )}
-          {activeTab === 'calendar' && (
-            <BandCalendar />
-          )}
-          {activeTab === 'setlist' && (
-            <Setlist />
-          )}
-          {activeTab === 'studio' && (
-            <Recording 
-              activeSession={activeSession}
-              currentUser={currentUser}
-            />
-          )}
-          {activeTab === 'projects' && (
-            <div className="projects-view">
-              <Sessions 
-                sessions={sessions} 
-                activeSession={activeSession}
-                onSelectSession={setActiveSession}
-                viewMode="grid"
-              />
-            </div>
-          )}
-          {activeTab === 'community' && (
-            <div className="community-view">
-              <Users users={users} viewMode="detailed" />
-            </div>
-          )}
-          {activeTab === 'chat' && (
-            <Chat users={users} fullScreen={true} />
-          )}
-        </main>
-
-        {/* Right Panel - Context Sensitive */}
-        {activeTab === 'studio' && (
-          <aside className="right-sidebar">
-            <Chat users={users} compact={true} />
-          </aside>
-        )}
-      </div>
-    </div>
-    </CommentsProvider>
+    <BandProvider currentUser={currentUser}>
+      <AppShell
+        currentUser={currentUser}
+        theme={theme}
+        toggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
+        onLogout={handleLogout}
+      />
+    </BandProvider>
   );
 }
 

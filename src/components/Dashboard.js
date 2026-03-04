@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useBand } from '../context/BandContext';
 import './Dashboard.css';
 
 function Dashboard({ currentUser, users }) {
+  const { userBand } = useBand();
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -86,7 +88,21 @@ function Dashboard({ currentUser, users }) {
         {/* Online Members */}
         <div className="dash-card members-card">
           <div className="dash-card-header">
-            <h2 className="dash-card-title">Band Members</h2>
+            <div>
+              <h2 className="dash-card-title">
+                {userBand ? userBand.name : 'Band Members'}
+              </h2>
+              {userBand && (() => {
+                const filled = userBand.positions.filter(p => p.filledBy).length;
+                const total = userBand.positions.length;
+                const isFull = filled === total;
+                return (
+                  <span className={`band-mini-status ${isFull ? 'full' : 'open'}`}>
+                    {isFull ? '🟢 Full' : `🔴 ${total - filled} open`}
+                  </span>
+                );
+              })()}
+            </div>
             <span className="online-count">{onlineMembers.length} online</span>
           </div>
           <div className="members-list">
@@ -120,7 +136,11 @@ function Dashboard({ currentUser, users }) {
               <span className="stat-label">Upcoming Gigs</span>
             </div>
             <div className="stat-item">
-              <span className="stat-value">{(users || []).length}</span>
+              <span className="stat-value">
+                {userBand
+                  ? `${userBand.positions.filter(p => p.filledBy).length}/${userBand.positions.length}`
+                  : (users || []).length}
+              </span>
               <span className="stat-label">Band Members</span>
             </div>
             <div className="stat-item">

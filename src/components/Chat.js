@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import './Chat.css';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 function Chat({ users, compact = false, fullScreen = false, currentUser }) {
-  // Generate initial messages from actual band members
+  // Generate initial messages from actual band members (used as fallback when Supabase isn't configured)
   const [messages, setMessages] = useState(() => {
+    if (isSupabaseConfigured) return [];
+
     const initialMessages = [];
     const messageTemplates = [
       'Ready to start recording!',
@@ -14,7 +17,6 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
       'When should we schedule the next session?'
     ];
 
-    // Add welcome message
     initialMessages.push({
       id: 1,
       user: 'System',
@@ -24,7 +26,6 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
       type: 'notification'
     });
 
-    // Add messages from random band members
     users.slice(1, 4).forEach((user, index) => {
       initialMessages.push({
         id: index + 2,
@@ -43,6 +44,52 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
   const [showMentions, setShowMentions] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // ── Load chat history from Supabase and subscribe to new messages ──
+  useEffect(() => {
+    if (!isSupabaseConfigured || !currentUser?.sessionId) return;
+
+    supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('session_id', currentUser.sessionId)
+      .order('created_at')
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setMessages(data.map(m => ({
+            id: m.id,
+            user: m.author_name,
+            text: m.text,
+            time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            avatar: m.author_avatar,
+            type: 'message',
+          })));
+        }
+      });
+
+    const channel = supabase
+      .channel(`chat-${currentUser.sessionId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `session_id=eq.${currentUser.sessionId}` },
+        (payload) => {
+          const m = payload.new;
+          // Skip if it's the current user's own message (already added optimistically)
+          if (m.author_id === currentUser.id) return;
+          setMessages(prev => [...prev, {
+            id: m.id,
+            user: m.author_name,
+            text: m.text,
+            time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            avatar: m.author_avatar,
+            type: 'message',
+          }]);
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [currentUser?.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Request notification permission on mount
   useEffect(() => {
@@ -180,7 +227,7 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
     setMessages([...messages, message]);
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (newMessage.trim()) {
       const message = {
@@ -194,6 +241,16 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
       setMessages([...messages, message]);
       setNewMessage('');
       setShowMentions(false);
+
+      if (isSupabaseConfigured && currentUser) {
+        await supabase.from('chat_messages').insert({
+          session_id: currentUser.sessionId,
+          author_id: currentUser.id,
+          author_name: currentUser.displayName || currentUser.username,
+          author_avatar: currentUser.avatar || '😎',
+          text: newMessage.trim(),
+        });
+      }
     }
   };
 

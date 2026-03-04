@@ -4,6 +4,23 @@
   height: 100%;
 }
 
+.band-mini-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 8px;
+  display: inline-block;
+  margin-top: 3px;
+}
+.band-mini-status.full {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--success);
+}
+.band-mini-status.open {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

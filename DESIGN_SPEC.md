@@ -1,3 +1,6 @@
+> **Status:** ✅ Implemented — see [PROPOSALS_TRACKER.md](PROPOSALS_TRACKER.md)
+> **Last updated:** Mar 4, 2026
+
 # BandLab Studio — Design Specification
 
 ## 1. Overview

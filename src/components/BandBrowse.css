@@ -1,0 +1,205 @@
+.band-browse-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: var(--bg-primary);
+  z-index: 9999;
+  overflow-y: auto;
+  padding: 32px 16px;
+}
+
+.band-browse-card,
+.band-detail-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 36px 40px;
+  width: 100%;
+  max-width: 580px;
+  box-shadow: 0 20px 60px var(--shadow-strong);
+  position: relative;
+  z-index: 1;
+  animation: slideIn 0.4s ease;
+}
+
+/* Browse list header */
+.browse-header { margin-bottom: 20px; }
+.browse-header h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+.browse-header p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.browse-search { margin-bottom: 20px; }
+
+.no-bands {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.bands-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.band-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: border-color 0.15s;
+}
+.band-list-row:hover { border-color: var(--border-light); }
+
+.band-list-info { display: flex; flex-direction: column; gap: 3px; }
+.band-list-name { font-weight: 600; color: var(--text-primary); font-size: 0.95rem; }
+.band-list-genre { font-size: 0.78rem; color: var(--text-muted); }
+
+.band-list-right { display: flex; align-items: center; gap: 10px; }
+
+.band-status-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.band-status-badge.open {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.band-status-badge.reviewing {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.band-status-badge.full {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.view-band-btn {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.view-band-btn:hover { background: var(--accent-hover); }
+
+/* Band detail */
+.detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.detail-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+.detail-genre {
+  font-size: 0.82rem;
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.detail-desc {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.browse-section { margin-bottom: 24px; }
+.browse-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.browse-roster-list { display: flex; flex-direction: column; gap: 8px; }
+.browse-roster-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+.browse-roster-slot.open { border-style: dashed; opacity: 0.8; }
+
+.slot-emoji { font-size: 1.1rem; }
+.slot-title {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.slot-filled-by {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.slot-avatar { font-size: 1rem; }
+.slot-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+.slot-badge-filled { background: rgba(34, 197, 94, 0.12); color: var(--success); }
+.slot-badge-open   { background: rgba(99, 102, 241, 0.12); color: var(--accent-primary); }
+
+.apply-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+}
+
+.apply-positions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.band-full-notice {
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding-bottom: 8px;
+}

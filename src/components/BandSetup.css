@@ -1,0 +1,266 @@
+/* ── Shared base styles (used by BandSetup, BandCreate, BandBrowse) ─────────── */
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.band-setup-background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.setup-pattern {
+  position: absolute;
+  inset: -50%;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%);
+  animation: setupFloat 20s ease-in-out infinite;
+}
+
+@keyframes setupFloat {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33%       { transform: translate(30px, -30px) rotate(5deg); }
+  66%       { transform: translate(-20px, 20px) rotate(-5deg); }
+}
+
+/* Shared card base */
+.band-setup-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%;
+  max-width: 560px;
+  box-shadow: 0 20px 60px var(--shadow-strong);
+  position: relative;
+  z-index: 1;
+  animation: slideIn 0.4s ease;
+}
+
+/* Shared back button */
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 20px;
+  display: block;
+  transition: color 0.2s;
+}
+.back-btn:hover { color: var(--accent-primary); }
+
+/* Shared form primitives */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form-group label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.label-hint {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.create-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+.create-input:focus { border-color: var(--accent-primary); }
+.create-textarea { resize: vertical; min-height: 60px; }
+select.create-input option { background: var(--bg-secondary); }
+
+.position-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.position-radio input[type='radio'] { display: none; }
+.position-radio.selected {
+  border-color: var(--success);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success);
+  font-weight: 600;
+}
+
+.create-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--danger);
+  font-size: 0.88rem;
+}
+
+.create-submit-btn {
+  padding: 14px;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  width: 100%;
+}
+.create-submit-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+
+/* ── BandSetup-specific ────────────────────────────────────────────────────── */
+
+.band-setup-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  z-index: 9999;
+}
+
+.setup-header { text-align: center; margin-bottom: 32px; }
+
+.setup-logo {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+.setup-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+.setup-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.setup-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.choice-card {
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-color);
+  border-radius: 14px;
+  padding: 28px 20px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+.choice-card:hover {
+  border-color: var(--accent-primary);
+  background: var(--accent-bg);
+  transform: translateY(-2px);
+}
+.choice-icon { font-size: 2.4rem; }
+.choice-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.choice-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Pending state */
+.pending-card { text-align: center; max-width: 440px; }
+.pending-header { margin-bottom: 20px; }
+.pending-icon { font-size: 3rem; display: block; margin-bottom: 12px; }
+.pending-header h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+.pending-header p { color: var(--text-secondary); font-size: 0.95rem; margin: 0; }
+
+.pending-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-primary);
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin-bottom: 16px;
+}
+.pending-position-label { font-size: 0.8rem; color: var(--text-secondary); }
+.pending-position {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.pending-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.pending-actions { display: flex; flex-direction: column; gap: 10px; }
+
+.setup-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.setup-btn.primary { background: var(--accent-primary); color: white; }
+.setup-btn.primary:hover { background: var(--accent-hover); }
+.setup-btn.danger {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+.setup-btn.danger:hover { background: rgba(239, 68, 68, 0.1); }
