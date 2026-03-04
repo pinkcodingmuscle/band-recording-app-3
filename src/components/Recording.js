@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Recording.css';
+import { collaborationService } from '../services/collaborationService';
+import { recordingApi } from '../services/recordingApi';
 
 const TRACK_DURATION_SECONDS = 240;
 const BASE_TIMELINE_WIDTH_PX = 1200;
@@ -24,6 +26,14 @@ const AUDIO_COMMENTS_STORE = 'audio_comments';
 const AUDIO_COMMENTS_DB_VERSION = 1;
 const PREFERRED_MIC_KEY = 'recording_preferred_mic_device_id_v1';
 const COLLAB_SETTINGS_KEY = 'recording_collab_isolation_settings_v1';
+const AUDIO_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/mp4',
+  'audio/aac',
+  'audio/ogg;codecs=opus',
+  'audio/ogg'
+];
 
 const DEFAULT_COLLABORATORS = [
   { id: 'local-user', name: 'You', role: 'Recorder', isRecording: false },
@@ -202,6 +212,9 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
   const [preferredMicDeviceId, setPreferredMicDeviceId] = useState(() => localStorage.getItem(PREFERRED_MIC_KEY) || null);
   const [collaborators, setCollaborators] = useState(DEFAULT_COLLABORATORS);
   const [activeMonitorUserId, setActiveMonitorUserId] = useState('local-user');
+  const [signalingStatus, setSignalingStatus] = useState('disconnected');
+  const [lastPolicyMessage, setLastPolicyMessage] = useState('');
+  const [lastCommittedTakeId, setLastCommittedTakeId] = useState('');
   const [selectedPlaybackTrackIds, setSelectedPlaybackTrackIds] = useState(() => {
     const settings = safeParseJSON(localStorage.getItem(COLLAB_SETTINGS_KEY), null);
     return Array.isArray(settings?.selectedPlaybackTrackIds) ? settings.selectedPlaybackTrackIds : [];
@@ -210,6 +223,8 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
     const settings = safeParseJSON(localStorage.getItem(COLLAB_SETTINGS_KEY), null);
     return settings?.allowLiveMicPublish ?? false;
   });
+  const activeTakeRef = useRef(null);
+  const activeSessionId = activeSession?.sessionId || 'local-session';
 
   const activeMonitorUser = collaborators.find(user => user.id === activeMonitorUserId) || collaborators[0];
   const activeMonitorIsRecording = !!activeMonitorUser?.isRecording;
@@ -323,37 +338,72 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
   }, [preferredMicDeviceId]);
 
   useEffect(() => {
+    const unsubscribeConnection = collaborationService.subscribe('connection:status', (event) => {
+      setSignalingStatus(event.status);
+    });
+
+    const unsubscribeParticipants = collaborationService.subscribe('participants:update', (event) => {
+      if (Array.isArray(event.participants)) {
+        setCollaborators(event.participants);
+      }
+    });
+
+    const unsubscribePolicy = collaborationService.subscribe('policy:update', (event) => {
+      const enabled = !!event?.policy?.liveMicPublish;
+      setAllowLiveMicPublish(enabled);
+      setLastPolicyMessage(enabled ? 'Live mic publish enabled' : 'Live mic publish disabled');
+    });
+
+    const unsubscribePolicyDenied = collaborationService.subscribe('policy:denied', (event) => {
+      setLastPolicyMessage(event?.reason || 'Policy denied');
+    });
+
+    return () => {
+      unsubscribeConnection();
+      unsubscribeParticipants();
+      unsubscribePolicy();
+      unsubscribePolicyDenied();
+    };
+  }, []);
+
+  useEffect(() => {
+    collaborationService.connect({
+      sessionId: activeSessionId,
+      userId: 'local-user'
+    });
+
+    return () => {
+      collaborationService.disconnect();
+    };
+  }, [activeSessionId]);
+
+  useEffect(() => {
     const collaboratorTargetCount = Math.max(3, Math.min(6, activeSession?.collaborators || DEFAULT_COLLABORATORS.length));
     const seedNames = ['Alex', 'Maya', 'Jordan', 'Chris', 'Nina', 'Sam'];
+    const previousState = Object.fromEntries((collaborationService.getSnapshot().participants || []).map(user => [user.id, user]));
+    const next = [{
+      id: 'local-user',
+      name: 'You',
+      role: 'Recorder',
+      isRecording: !!isRecording
+    }];
 
-    setCollaborators(prev => {
-      const previousState = Object.fromEntries((prev || []).map(user => [user.id, user]));
-      const next = [{
-        id: 'local-user',
-        name: 'You',
-        role: 'Recorder',
-        isRecording: !!isRecording
-      }];
+    for (let index = 1; index < collaboratorTargetCount; index += 1) {
+      const userId = `user-${index + 1}`;
+      const existing = previousState[userId];
+      next.push({
+        id: userId,
+        name: existing?.name || seedNames[(index - 1) % seedNames.length],
+        role: existing?.role || `Collaborator ${index}`,
+        isRecording: existing?.isRecording || false
+      });
+    }
 
-      for (let index = 1; index < collaboratorTargetCount; index += 1) {
-        const userId = `user-${index + 1}`;
-        const existing = previousState[userId];
-        next.push({
-          id: userId,
-          name: existing?.name || seedNames[(index - 1) % seedNames.length],
-          role: existing?.role || `Collaborator ${index}`,
-          isRecording: existing?.isRecording || false
-        });
-      }
-
-      return next;
-    });
+    collaborationService.setParticipants(next);
   }, [activeSession, isRecording]);
 
   useEffect(() => {
-    setCollaborators(prev => prev.map(user => (
-      user.id === 'local-user' ? { ...user, isRecording: !!isRecording } : user
-    )));
+    collaborationService.setParticipantRecording('local-user', !!isRecording);
   }, [isRecording]);
 
   useEffect(() => {
@@ -474,6 +524,27 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
     }
   };
 
+  const getSupportedRecorderMimeType = () => {
+    if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+      return null;
+    }
+
+    return AUDIO_MIME_CANDIDATES.find(type => MediaRecorder.isTypeSupported(type)) || null;
+  };
+
+  const createAudioRecorder = (stream) => {
+    if (typeof MediaRecorder === 'undefined') {
+      throw new Error('MediaRecorder is not supported in this browser.');
+    }
+
+    const mimeType = getSupportedRecorderMimeType();
+    if (mimeType) {
+      return new MediaRecorder(stream, { mimeType });
+    }
+
+    return new MediaRecorder(stream);
+  };
+
   const togglePlaybackTrackSelection = (trackId) => {
     setSelectedPlaybackTrackIds(prev => (
       prev.includes(trackId)
@@ -487,32 +558,37 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
       return;
     }
 
-    setCollaborators(prev => prev.map(user => (
-      user.id === collaboratorId ? { ...user, isRecording: !user.isRecording } : user
-    )));
+    const snapshot = collaborationService.getSnapshot();
+    const targetUser = (snapshot.participants || []).find(user => user.id === collaboratorId);
+    const nextState = !(targetUser?.isRecording);
+    collaborationService.setParticipantRecording(collaboratorId, nextState);
+
+    if (nextState) {
+      const publishRequest = collaborationService.requestLiveMicPublish({
+        requesterUserId: collaboratorId,
+        enabled: false
+      });
+
+      if (!publishRequest.allowed) {
+        setLastPolicyMessage(publishRequest.reason);
+      }
+    }
   };
 
   const canHearLiveMic = (listenerUserId, sourceUserId) => {
-    if (!allowLiveMicPublish) {
-      return false;
+    return collaborationService.canHearLiveMic(listenerUserId, sourceUserId);
+  };
+
+  const handleLiveMicPublishToggle = () => {
+    const result = collaborationService.requestLiveMicPublish({
+      requesterUserId: 'local-user',
+      enabled: !allowLiveMicPublish
+    });
+
+    if (!result.allowed) {
+      setLastPolicyMessage(result.reason);
+      alert(result.reason);
     }
-
-    if (listenerUserId === sourceUserId) {
-      return true;
-    }
-
-    const listener = collaborators.find(user => user.id === listenerUserId);
-    const source = collaborators.find(user => user.id === sourceUserId);
-
-    if (!listener || !source) {
-      return false;
-    }
-
-    if (listener.isRecording || source.isRecording) {
-      return false;
-    }
-
-    return true;
   };
 
   useEffect(() => {
@@ -645,7 +721,7 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
     }
 
     try {
-      const recorder = new MediaRecorder(activeStream, { mimeType: 'audio/webm' });
+      const recorder = createAudioRecorder(activeStream);
       const chunks = [];
       const startedAt = Date.now();
 
@@ -657,7 +733,8 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
 
       recorder.onstop = () => {
         const durationMs = Date.now() - startedAt;
-        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+        const audioBlobType = recorder.mimeType || chunks[0]?.type || 'audio/webm';
+        const audioBlob = new Blob(chunks, { type: audioBlobType });
         const meta = commentRecordingMetaRef.current;
 
         const persistAndCreateComment = async () => {
@@ -786,22 +863,39 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
     }
     
     try {
-      // Create MediaRecorder instance
-      const recorder = new MediaRecorder(activeStream, {
-        mimeType: 'audio/webm'
+      const initializedTake = await recordingApi.initTake({
+        sessionId: activeSessionId,
+        trackId: armedTrackId,
+        userId: 'local-user',
+        positionMs: getCurrentTimelineMs(),
+        sampleRate: 48000
       });
+      activeTakeRef.current = initializedTake;
+
+      // Create MediaRecorder instance
+      const recorder = createAudioRecorder(activeStream);
       
       const chunks = [];
       
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunks.push(event.data);
+          if (activeTakeRef.current?.takeId) {
+            recordingApi.uploadTakeChunk({
+              sessionId: activeSessionId,
+              takeId: activeTakeRef.current.takeId,
+              chunkBlob: event.data
+            }).catch((error) => {
+              console.error('Failed to upload take chunk:', error);
+            });
+          }
         }
       };
       
       recorder.onstop = async () => {
         // Create blob from recorded chunks
-        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+        const audioBlobType = recorder.mimeType || chunks[0]?.type || 'audio/webm';
+        const audioBlob = new Blob(chunks, { type: audioBlobType });
         
         // Save to armed track
         const armedTrack = tracks.find(t => t.id === armedTrackId);
@@ -824,6 +918,30 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
               : track
           ));
         }
+
+        if (activeTakeRef.current?.takeId) {
+          try {
+            const committedTake = await recordingApi.commitTake({
+              sessionId: activeSessionId,
+              takeId: activeTakeRef.current.takeId,
+              durationMs: recordingTime * 1000,
+              startOffsetMs: getCurrentTimelineMs()
+            });
+
+            if (committedTake?.takeId) {
+              setLastCommittedTakeId(committedTake.takeId);
+            }
+          } catch (error) {
+            console.error('Failed to commit take:', error);
+          }
+        }
+
+        activeTakeRef.current = null;
+        collaborationService.setParticipantRecording('local-user', false);
+        collaborationService.updateTransport({
+          status: 'idle',
+          positionMs: getCurrentTimelineMs()
+        });
         
         setMediaRecorder(null);
       };
@@ -832,9 +950,17 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
       setMediaRecorder(recorder);
       setIsRecording(true);
       setRecordingTime(0);
+      collaborationService.setParticipantRecording('local-user', true);
+      collaborationService.updateTransport({
+        status: 'recording',
+        positionMs: getCurrentTimelineMs()
+      });
+      setLastPolicyMessage('Recording started: live mic is local-only.');
       
     } catch (error) {
       console.error('Error starting recording:', error);
+      activeTakeRef.current = null;
+      collaborationService.setParticipantRecording('local-user', false);
       alert('Failed to start recording. Please try again.');
     }
   };
@@ -843,6 +969,10 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
       setIsRecording(false);
+      collaborationService.updateTransport({
+        status: 'stopping',
+        positionMs: getCurrentTimelineMs()
+      });
     }
   };
 
@@ -863,58 +993,54 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
     if (audioSourcesRef.current[trackId]) {
       try {
         audioSourcesRef.current[trackId].stop();
-        delete audioSourcesRef.current[trackId];
-        setTracks(tracks.map(t => 
-          t.id === trackId ? { ...t, isPlayingTrack: false } : t
-        ));
-        return;
       } catch (e) {
         // Already stopped
       }
+
+      delete audioSourcesRef.current[trackId];
+      setTracks(tracks.map(t =>
+        t.id === trackId ? { ...t, isPlayingTrack: false } : t
+      ));
+      return;
     }
 
     try {
-      // Create audio context if not exists
-      let context = audioContext;
-      if (!context) {
-        context = new (window.AudioContext || window.webkitAudioContext)();
-        setAudioContext(context);
-      }
+      const audioUrl = URL.createObjectURL(track.audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.volume = track.muted ? 0 : (track.volume / 100);
 
-      // Convert blob to array buffer
-      const arrayBuffer = await track.audioBlob.arrayBuffer();
-      
-      // Decode audio data
-      const audioBuffer = await context.decodeAudioData(arrayBuffer);
-      
-      // Create source node
-      const source = context.createBufferSource();
-      source.buffer = audioBuffer;
-      
-      // Create gain node for volume control
-      const gainNode = context.createGain();
-      gainNode.gain.value = track.volume / 100;
-      
-      source.connect(gainNode);
-      gainNode.connect(context.destination);
-      
-      // Handle playback end
-      source.onended = () => {
+      const stopPlayback = () => {
+        audio.pause();
+        audio.currentTime = 0;
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
         delete audioSourcesRef.current[trackId];
-        setTracks(tracks.map(t => 
+        setTracks(tracks.map(t =>
           t.id === trackId ? { ...t, isPlayingTrack: false } : t
         ));
       };
-      
-      // Play
-      source.start(0);
-      
-      // Store source for stopping
-      audioSourcesRef.current[trackId] = source;
-      setTracks(tracks.map(t => 
+
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        delete audioSourcesRef.current[trackId];
+        setTracks(tracks.map(t =>
+          t.id === trackId ? { ...t, isPlayingTrack: false } : t
+        ));
+      };
+
+      audioSourcesRef.current[trackId] = {
+        audio,
+        stop: stopPlayback
+      };
+
+      await audio.play();
+
+      setTracks(tracks.map(t =>
         t.id === trackId ? { ...t, isPlayingTrack: true } : t
       ));
-      
     } catch (error) {
       console.error('Error playing track:', error);
       alert('Failed to play track. Please try again.');
@@ -1014,8 +1140,16 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
   };
 
   const toggleMute = (id) => {
-    setTracks(tracks.map(track => 
-      track.id === id ? { ...track, muted: !track.muted } : track
+    const targetTrack = tracks.find(track => track.id === id);
+    const nextMuted = !(targetTrack?.muted);
+
+    const activeSource = audioSourcesRef.current[id];
+    if (activeSource?.audio) {
+      activeSource.audio.volume = nextMuted ? 0 : ((targetTrack?.volume || 0) / 100);
+    }
+
+    setTracks(tracks.map(track =>
+      track.id === id ? { ...track, muted: nextMuted } : track
     ));
   };
 
@@ -1026,8 +1160,16 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
   };
 
   const updateVolume = (id, volume) => {
-    setTracks(tracks.map(track => 
-      track.id === id ? { ...track, volume: parseInt(volume) } : track
+    const nextVolume = parseInt(volume);
+    const targetTrack = tracks.find(track => track.id === id);
+
+    const activeSource = audioSourcesRef.current[id];
+    if (activeSource?.audio) {
+      activeSource.audio.volume = targetTrack?.muted ? 0 : (nextVolume / 100);
+    }
+
+    setTracks(tracks.map(track =>
+      track.id === id ? { ...track, volume: nextVolume } : track
     ));
   };
 
@@ -1106,7 +1248,7 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
               </span>
               <button
                 className={`comment-toggle-btn ${allowLiveMicPublish ? 'active' : ''}`}
-                onClick={() => setAllowLiveMicPublish(prev => !prev)}
+                onClick={handleLiveMicPublishToggle}
                 disabled={isRecording}
                 title={isRecording ? 'Live mic publish is disabled while recording' : 'Toggle live mic publishing for non-record mode'}
                 aria-label="Toggle live mic publishing"
@@ -1373,6 +1515,12 @@ function Recording({ isRecording, setIsRecording, activeSession }) {
                 ? 'Record mode: only your mic + selected tracks'
                 : 'Idle mode: isolate checks are still enforced'}
             </span>
+          </div>
+
+          <div className="isolation-service-meta">
+            <span>Signaling: {signalingStatus}</span>
+            <span>Policy: {lastPolicyMessage || 'Ready'}</span>
+            <span>Last take: {lastCommittedTakeId || 'None'}</span>
           </div>
 
           <div className="monitor-mix-list">

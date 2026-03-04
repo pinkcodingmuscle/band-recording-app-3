@@ -792,6 +792,21 @@
   font-size: 0.78rem;
 }
 
+.isolation-service-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.isolation-service-meta span {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
 .monitor-mix-list {
   display: flex;
   flex-wrap: wrap;
