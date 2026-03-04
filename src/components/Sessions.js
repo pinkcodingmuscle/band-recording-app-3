@@ -7,7 +7,7 @@ function Sessions({ sessions, activeSession, onSelectSession, viewMode = 'list' 
       <div className="projects-grid-container">
         <div className="projects-header">
           <h2>📁 Your Projects</h2>
-          <button className="new-project-btn">+ New Project</button>
+          <button className="new-project-btn" title="Create new project">+ New Project</button>
         </div>
         <div className="projects-grid">
           {sessions.map(session => (

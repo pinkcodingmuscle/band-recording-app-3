@@ -86,7 +86,7 @@ function Login({ onLogin }) {
 
           {error && <div className="error-message">{error}</div>}
 
-          <button type="submit" className="login-button">
+          <button type="submit" className="login-button" title={isSignup ? 'Create account' : 'Log in'}>
             {isSignup ? 'Sign Up' : 'Log In'}
           </button>
 
@@ -94,7 +94,7 @@ function Login({ onLogin }) {
             <span>or</span>
           </div>
 
-          <button type="button" className="demo-login-button" onClick={() => {
+          <button type="button" className="demo-login-button" title="Continue with demo account" onClick={() => {
             const sessionId = 'sess' + Math.floor(10000 + Math.random() * 90000);
             const demoUser = {
               username: 'Demo User',
@@ -113,6 +113,7 @@ function Login({ onLogin }) {
           <button 
             className="toggle-mode-button"
             onClick={() => setIsSignup(!isSignup)}
+            title={isSignup ? 'Switch to Log In' : 'Switch to Sign Up'}
           >
             {isSignup ? 'Already have an account? Log In' : "Don't have an account? Sign Up"}
           </button>

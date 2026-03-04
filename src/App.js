@@ -16,7 +16,16 @@ function App() {
   });
   const [currentUser, setCurrentUser] = useState(() => {
     const savedUser = localStorage.getItem('currentUser');
-    return savedUser ? JSON.parse(savedUser) : null;
+    if (!savedUser) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(savedUser);
+    } catch (error) {
+      localStorage.removeItem('currentUser');
+      return null;
+    }
   });
   const [notificationCount, setNotificationCount] = useState(0);
 
@@ -145,7 +154,7 @@ function App() {
       {/* Top Navigation Bar */}
       <nav className="top-nav">
         <div className="nav-left">
-          <button className="menu-toggle" onClick={() => setShowSidebar(!showSidebar)}>
+          <button className="menu-toggle" onClick={() => setShowSidebar(!showSidebar)} title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}>
             ☰
           </button>
           <h1 className="app-logo">🎵 BandLab Studio</h1>
@@ -159,6 +168,7 @@ function App() {
           <button 
             className={`nav-tab ${activeTab === 'studio' ? 'active' : ''}`}
             onClick={() => setActiveTab('studio')}
+            title="Open Studio tab"
           >
             <span className="tab-icon">🎙️</span>
             Studio
@@ -166,6 +176,7 @@ function App() {
           <button 
             className={`nav-tab ${activeTab === 'projects' ? 'active' : ''}`}
             onClick={() => setActiveTab('projects')}
+            title="Open Projects tab"
           >
             <span className="tab-icon">📁</span>
             Projects
@@ -173,6 +184,7 @@ function App() {
           <button 
             className={`nav-tab ${activeTab === 'community' ? 'active' : ''}`}
             onClick={() => setActiveTab('community')}
+            title="Open Band tab"
           >
             <span className="tab-icon">👥</span>
             Band
@@ -180,6 +192,7 @@ function App() {
           <button 
             className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
+            title="Open Chat tab"
           >
             <span className="tab-icon">💬</span>
             Chat
@@ -194,7 +207,7 @@ function App() {
             🔔
             {notificationCount > 0 && <span className="notification-badge">{notificationCount}</span>}
           </button>
-          <button className="nav-btn">⚙️</button>
+          <button className="nav-btn" title="Settings">⚙️</button>
           <div className="user-profile">
             <span className="user-name">{currentUser.username}</span>
             <span className="user-session-id">{currentUser.sessionId}</span>

@@ -1,0 +1,141 @@
+
+> band-recording-app-3@1.0.0 start
+> vite
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+  VITE v5.4.21  ready in 14720 ms
+
+  ➜  Local:   http://127.0.0.1:3000/
+7:25:52 PM [vite] page reload src/App.js
+7:26:02 PM [vite] page reload src/components/Chat.js
+7:26:04 PM [vite] page reload src/components/Chat.js
+7:26:06 PM [vite] page reload src/components/Sessions.js
+7:26:12 PM [vite] page reload src/components/Users.js
+7:26:24 PM [vite] page reload src/components/Login.js
+7:26:37 PM [vite] page reload src/components/Recording.js
+7:27:06 PM [vite] page reload src/components/Login.js
+7:27:06 PM [vite] page reload index.html
+7:27:06 PM [vite] page reload src/components/Sessions.js
+7:27:06 PM [vite] vite.config.js changed, restarting server...
+7:27:09 PM [vite] page reload src/index.js
+7:27:09 PM [vite] page reload src/components/Users.js
+7:27:09 PM [vite] hmr update /src/index.css
+7:27:09 PM [vite] hmr update /src/App.css
+7:27:09 PM [vite] page reload src/components/Recording.js
+7:27:09 PM [vite] page reload src/components/Chat.js
+7:27:09 PM [vite] hmr update /src/components/Sessions.css
+7:27:09 PM [vite] hmr update /src/components/Login.css
+7:27:09 PM [vite] page reload src/App.js
+7:27:09 PM [vite] hmr update /src/components/Chat.css
+7:27:09 PM [vite] hmr update /src/components/Users.css
+7:27:09 PM [vite] hmr update /src/components/Recording.css
+7:27:09 PM [vite] vite.config.js changed, restarting server...
+7:27:10 PM [vite] page reload index.html
+7:27:12 PM [vite] server restarted.
+7:27:34 PM [vite] page reload index.html
+7:27:34 PM [vite] vite.config.js changed, restarting server...
+7:27:37 PM [vite] vite.config.js changed, restarting server...
+7:27:40 PM [vite] server restarted.
+7:28:52 PM [vite] page reload index.html
+7:33:07 PM [vite] page reload src/components/Login.js
+7:33:07 PM [vite] page reload index.html
+7:33:07 PM [vite] page reload src/components/Sessions.js
+7:33:07 PM [vite] vite.config.js changed, restarting server...
+7:33:10 PM [vite] page reload src/index.js
+7:33:10 PM [vite] page reload src/components/Users.js
+7:33:10 PM [vite] page reload src/components/ErrorBoundary.js
+7:33:10 PM [vite] hmr update /src/index.css
+7:33:10 PM [vite] hmr update /src/App.css
+7:33:10 PM [vite] page reload src/components/Recording.js
+7:33:10 PM [vite] page reload src/components/Chat.js
+7:33:10 PM [vite] hmr update /src/components/Sessions.css
+7:33:10 PM [vite] hmr update /src/components/Login.css
+7:33:10 PM [vite] page reload src/App.js
+7:33:10 PM [vite] hmr update /src/components/Chat.css
+7:33:10 PM [vite] hmr update /src/components/Users.css
+7:33:10 PM [vite] hmr update /src/components/Recording.css
+7:33:10 PM [vite] page reload index.html
+7:33:10 PM [vite] hmr update /src/App.css
+7:33:10 PM [vite] hmr update /src/index.css
+7:33:11 PM [vite] vite.config.js changed, restarting server...
+7:33:12 PM [vite] hmr update /src/components/Login.css
+7:33:12 PM [vite] hmr update /src/components/Sessions.css
+7:33:12 PM [vite] hmr update /src/components/Chat.css
+7:33:12 PM [vite] hmr update /src/components/Recording.css
+7:33:12 PM [vite] hmr update /src/components/Users.css
+7:33:15 PM [vite] server restarted.
+7:33:34 PM [vite] page reload src/components/Login.js
+7:33:34 PM [vite] page reload index.html
+7:33:34 PM [vite] page reload src/components/Sessions.js
+7:33:34 PM [vite] vite.config.js changed, restarting server...
+7:33:34 PM [vite] page reload src/index.js
+7:33:34 PM [vite] page reload src/components/Users.js
+7:33:34 PM [vite] page reload src/components/ErrorBoundary.js
+7:33:34 PM [vite] hmr update /src/index.css
+7:33:34 PM [vite] hmr update /src/App.css
+7:33:34 PM [vite] page reload src/components/Recording.js
+7:33:34 PM [vite] page reload src/components/Chat.js
+7:33:34 PM [vite] hmr update /src/components/Sessions.css
+7:33:34 PM [vite] hmr update /src/components/Login.css
+7:33:34 PM [vite] page reload src/App.js
+7:33:34 PM [vite] hmr update /src/components/Chat.css
+7:33:34 PM [vite] hmr update /src/components/Users.css
+7:33:34 PM [vite] hmr update /src/components/Recording.css
+7:33:35 PM [vite] page reload index.html
+7:33:36 PM [vite] hmr update /src/index.css
+7:33:36 PM [vite] page reload src/index.js
+7:33:37 PM [vite] vite.config.js changed, restarting server...
+7:33:38 PM [vite] page reload src/components/ErrorBoundary.js
+7:33:38 PM [vite] page reload src/App.js
+7:33:40 PM [vite] server restarted.
+7:40:09 PM [vite] page reload index.html
+7:40:09 PM [vite] vite.config.js changed, restarting server...
+7:40:13 PM [vite] vite.config.js changed, restarting server...
+7:40:19 PM [vite] server restarted.
+7:40:46 PM [vite] vite.config.js changed, restarting server...
+7:40:48 PM [vite] vite.config.js changed, restarting server...
+7:40:51 PM [vite] server restarted.
+7:40:54 PM [vite] page reload index.html
+7:40:59 PM [vite] page reload src/components/Login.js
+7:42:30 PM [vite] hmr update /src/components/Recording.css
+7:47:00 PM [vite] page reload src/components/Login.js
+7:47:00 PM [vite] page reload index.html
+7:47:00 PM [vite] page reload src/components/Sessions.js
+7:47:00 PM [vite] vite.config.js changed, restarting server...
+7:47:02 PM [vite] page reload src/index.js
+7:47:02 PM [vite] page reload src/components/Users.js
+7:47:02 PM [vite] page reload src/components/ErrorBoundary.js
+7:47:02 PM [vite] hmr update /src/index.css
+7:47:02 PM [vite] hmr update /src/App.css
+7:47:02 PM [vite] page reload src/components/Recording.js
+7:47:02 PM [vite] page reload src/components/Chat.js
+7:47:02 PM [vite] hmr update /src/components/Sessions.css
+7:47:02 PM [vite] hmr update /src/components/Login.css
+7:47:02 PM [vite] page reload src/App.js
+7:47:02 PM [vite] hmr update /src/components/Chat.css
+7:47:02 PM [vite] hmr update /src/components/Users.css
+7:47:02 PM [vite] hmr update /src/components/Recording.css
+7:47:03 PM [vite] page reload index.html
+7:47:03 PM [vite] vite.config.js changed, restarting server...
+7:47:03 PM [vite] hmr update /src/App.css
+7:47:04 PM [vite] hmr update /src/index.css
+7:47:04 PM [vite] hmr update /src/components/Chat.css
+7:47:04 PM [vite] hmr update /src/components/Login.css
+7:47:04 PM [vite] hmr update /src/components/Sessions.css
+7:47:04 PM [vite] hmr update /src/components/Users.css
+7:47:07 PM [vite] server restarted.
+7:47:29 PM [vite] page reload index.html
+7:47:29 PM [vite] vite.config.js changed, restarting server...
+7:47:32 PM [vite] vite.config.js changed, restarting server...
+7:47:35 PM [vite] server restarted.
+7:58:25 PM [vite] vite.config.js changed, restarting server...
+7:58:33 PM [vite] vite.config.js changed, restarting server...
+7:59:02 PM [vite] server restarted.
+7:59:18 PM [vite] page reload index.html
+7:59:21 PM [vite] page reload index.html
+7:59:21 PM [vite] vite.config.js changed, restarting server...
+7:59:21 PM [vite] page reload src/index.js
+7:59:23 PM [vite] vite.config.js changed, restarting server...
+7:59:28 PM [vite] server restarted.
+8:02:22 PM [vite] page reload index.html

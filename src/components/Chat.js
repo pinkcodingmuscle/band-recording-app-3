@@ -269,8 +269,8 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
                   <p className="message-text">{message.text}</p>
                   {fullScreen && (
                     <div className="message-actions">
-                      <button className="message-action-btn">👍</button>
-                      <button className="message-action-btn">💬</button>
+                      <button className="message-action-btn" title="React to message">👍</button>
+                      <button className="message-action-btn" title="Reply to message">💬</button>
                     </div>
                   )}
                 </div>
@@ -287,6 +287,7 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
               key={user.id}
               className="mention-option"
               onClick={() => mentionUser(user.name)}
+              title={`Mention ${user.name}`}
             >
               <span className="mention-avatar">{user.avatar}</span>
               <span className="mention-name">{user.name}</span>
@@ -309,7 +310,7 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
         <button type="button" className="emoji-btn" title="Add emoji">
           😊
         </button>
-        <button type="submit" className="send-button">
+        <button type="submit" className="send-button" title="Send message">
           ➤
         </button>
       </form>

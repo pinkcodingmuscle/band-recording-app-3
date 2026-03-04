@@ -16,7 +16,7 @@ function Users({ users, viewMode = 'list' }) {
       <div className="users-detailed-container">
         <div className="users-detailed-header">
           <h2>👥 Band Members</h2>
-          <button className="invite-btn">+ Invite Member</button>
+          <button className="invite-btn" title="Invite band member">+ Invite Member</button>
         </div>
         <div className="users-grid">
           {users.map(user => (
@@ -47,8 +47,8 @@ function Users({ users, viewMode = 'list' }) {
                 </div>
 
                 <div className="user-actions">
-                  <button className="user-action-btn">💬 Message</button>
-                  <button className="user-action-btn">🎵 Invite</button>
+                  <button className="user-action-btn" title={`Message ${user.displayName || user.name}`}>💬 Message</button>
+                  <button className="user-action-btn" title={`Invite ${user.displayName || user.name} to session`}>🎵 Invite</button>
                 </div>
               </div>
             </div>
