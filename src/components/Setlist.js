@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './Setlist.css';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isApiConfigured, apiGetSetlist, apiUpsertSetlistItem, apiUpdateSetlistItem, apiDeleteSetlistItem, apiReorderSetlist } from '../lib/api';
 import { saveAudioBlob, loadAudioBlob, deleteAudioBlob } from '../db/audioDB';
 
 const KEYS = ['C major','D major','E major','F major','G major','A major','B major',
@@ -293,30 +293,105 @@ function Setlist({ currentUser }) {
   // { [songId]: objectUrl } for file-type blobs rehydrated from IndexedDB
   const [blobUrls, setBlobUrls] = useState({});
 
-  // ── Load setlist from Supabase or fall back to defaults ──
+  // ── Load setlist from API or fall back to defaults ──
   useEffect(() => {
-    if (!isSupabaseConfigured || !currentUser?.id) {
+    if (!isApiConfigured || !currentUser?.id) {
       setSongs(DEFAULT_SONGS);
       return;
     }
 
-    supabase
-      .from('setlist_items')
-      .select('*')
-      .eq('user_id', currentUser.id)
-      .order('order_index')
-      .then(({ data, error }) => {
-        if (!error && data && data.length > 0) {
-          setSongs(data.map(s => ({ id: s.id, title: s.title, bpm: s.bpm, key: s.key })));
-        } else {
-          setSongs(DEFAULT_SONGS);
-          // Seed Supabase with default songs on first visit
-          supabase.from('setlist_items').insert(
-            DEFAULT_SONGS.map((s, i) => ({ id: s.id, user_id: currentUser.id, title: s.title, bpm: s.bpm, key: s.key, order_index: i }))
-          ).then(() => {});
-        }
-      });
+    apiGetSetlist().then((data) => {
+      if (data && data.length > 0) {
+        setSongs(data);
+      } else {
+        setSongs(DEFAULT_SONGS);
+        // Seed API with default songs on first visit
+        DEFAULT_SONGS.forEach((s, i) => apiUpsertSetlistItem({ ...s, orderIndex: i }));
+      }
+    });
   }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Rehydrate file-type blob URLs from IndexedDB on mount ──
+  useEffect(() => {
+    let cancelled = false;
+    async function rehydrate() {
+      const fileSongs = songs.filter(s => s.recording?.type === 'file');
+      if (fileSongs.length === 0) return;
+      const map = {};
+      await Promise.all(fileSongs.map(async s => {
+        try {
+          const blob = await loadAudioBlob(s.recording.blobKey);
+          if (blob && !cancelled) {
+            map[s.id] = URL.createObjectURL(blob);
+          }
+        } catch { /* ignore */ }
+      }));
+      if (!cancelled && Object.keys(map).length > 0) setBlobUrls(prev => ({ ...prev, ...map }));
+    }
+    rehydrate();
+    return () => { cancelled = true; };
+  }, [songs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const attachRecording = useCallback(async (songId, rec) => {
+    // Store objectUrl in blobUrls, not in the song record (not serialisable)
+    const { objectUrl, ...serializableRec } = rec.type === 'file'
+      ? rec
+      : { objectUrl: undefined, ...rec };
+    if (rec.type === 'file' && objectUrl) {
+      setBlobUrls(prev => ({ ...prev, [songId]: objectUrl }));
+    }
+    setSongs(prev => prev.map(s => s.id === songId ? { ...s, recording: serializableRec } : s));
+    if (isApiConfigured) {
+      await apiUpdateSetlistItem(songId, { recording: serializableRec });
+    }
+  }, []);
+
+  const removeRecording = useCallback(async (songId) => {
+    const song = songs.find(s => s.id === songId);
+    if (song?.recording?.type === 'file') {
+      deleteAudioBlob(song.recording.blobKey).catch(() => {});
+      setBlobUrls(prev => { const n = { ...prev }; delete n[songId]; return n; });
+    }
+    setSongs(prev => prev.map(s => s.id === songId ? { ...s, recording: null } : s));
+    setPlayerOpenId(null);
+    if (isApiConfigured) {
+      await apiUpdateSetlistItem(songId, { recording: null });
+    }
+  }, [songs]);
+
+  // Resolve playback src for a song
+  const getPlaybackSrc = useCallback((song) => {
+    if (!song.recording) return null;
+    if (song.recording.type === 'youtube') return null; // handled by iframe
+    if (song.recording.type === 'file') {
+      return blobUrls[song.id] || null;
+    }
+    if (song.recording.type === 'band') {
+      // Try to get the live blob URL from the DAW's audio nodes via IndexedDB
+      // We'll store an objectUrl in blobUrls when the band track is attached
+      return blobUrls[song.id] || null;
+    }
+    return null;
+  }, [blobUrls]);
+
+  // When a band track is newly attached, load its blob URL from IndexedDB
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBandBlobs() {
+      const bandSongs = songs.filter(s => s.recording?.type === 'band' && !blobUrls[s.id]);
+      if (bandSongs.length === 0) return;
+      const map = {};
+      await Promise.all(bandSongs.map(async s => {
+        try {
+          const blob = await loadAudioBlob(s.recording.trackId);
+          if (blob && !cancelled) map[s.id] = URL.createObjectURL(blob);
+        } catch { /* ignore */ }
+      }));
+      if (!cancelled && Object.keys(map).length > 0) setBlobUrls(prev => ({ ...prev, ...map }));
+    }
+    loadBandBlobs();
+    return () => { cancelled = true; };
+  }, [songs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleExpand = (id) => {
     if (expandedId === id) {
@@ -332,16 +407,16 @@ function Setlist({ currentUser }) {
     const updated = songs.map(s => s.id === id ? { ...s, ...editBuf, bpm: Number(editBuf.bpm) } : s);
     setSongs(updated);
     setExpandedId(null);
-    if (isSupabaseConfigured) {
+    if (isApiConfigured) {
       const song = updated.find(s => s.id === id);
-      await supabase.from('setlist_items').update({ title: song.title, bpm: song.bpm, key: song.key }).eq('id', id);
+      await apiUpdateSetlistItem(id, { title: song.title, bpm: song.bpm, key: song.key });
     }
   };
 
   const deleteSong = async (id) => {
     setSongs(songs.filter(s => s.id !== id));
-    if (isSupabaseConfigured) {
-      await supabase.from('setlist_items').delete().eq('id', id);
+    if (isApiConfigured) {
+      await apiDeleteSetlistItem(id);
     }
   };
 
@@ -351,15 +426,8 @@ function Setlist({ currentUser }) {
     setSongs(prev => [...prev, song]);
     setNewSong({ title: '', bpm: 120, key: 'C major' });
     setAddOpen(false);
-    if (isSupabaseConfigured && currentUser?.id) {
-      await supabase.from('setlist_items').insert({
-        id: song.id,
-        user_id: currentUser.id,
-        title: song.title,
-        bpm: song.bpm,
-        key: song.key,
-        order_index: songs.length,
-      });
+    if (isApiConfigured && currentUser?.id) {
+      await apiUpsertSetlistItem({ ...song, orderIndex: songs.length });
     }
   };
 
@@ -376,10 +444,8 @@ function Setlist({ currentUser }) {
   };
   const onDragEnd = async () => {
     setDragId(null);
-    if (isSupabaseConfigured) {
-      await Promise.all(songs.map((s, idx) =>
-        supabase.from('setlist_items').update({ order_index: idx }).eq('id', s.id)
-      ));
+    if (isApiConfigured) {
+      await apiReorderSetlist(songs);
     }
   };
 
@@ -436,8 +502,42 @@ function Setlist({ currentUser }) {
                 <span className="setlist-song-meta">{song.bpm} BPM · {song.key}</span>
               </div>
               <span className="setlist-key-badge">{song.key}</span>
+              {/* Play button */}
+              <button
+                className={`sl-play-btn ${song.recording ? 'has-recording' : 'no-recording'}`}
+                title={song.recording ? 'Play recording' : 'Attach a recording'}
+                onClick={e => {
+                  e.stopPropagation();
+                  if (song.recording) {
+                    setPlayerOpenId(id => id === song.id ? null : song.id);
+                  } else {
+                    toggleExpand(song.id);
+                  }
+                }}
+              >
+                {playerOpenId === song.id ? '⏹' : '▶'}
+              </button>
               <span className="setlist-drag-handle" title="Drag to reorder">⋮⋮</span>
             </div>
+
+            {/* Inline mini-player */}
+            {playerOpenId === song.id && song.recording && (
+              song.recording.type === 'youtube'
+                ? <YouTubeMiniPlayer
+                    videoId={song.recording.videoId}
+                    onClose={() => setPlayerOpenId(null)}
+                  />
+                : getPlaybackSrc(song)
+                  ? <AudioMiniPlayer
+                      src={getPlaybackSrc(song)}
+                      label={song.recording.type === 'band' ? song.recording.trackName : song.recording.name}
+                      onClose={() => setPlayerOpenId(null)}
+                    />
+                  : <div className="sl-miniplayer sl-mp-no-audio" onClick={e => e.stopPropagation()}>
+                      Audio not available — the source file may have been deleted.
+                      <button className="sl-mp-close" onClick={() => setPlayerOpenId(null)}>✕</button>
+                    </div>
+            )}
 
             {expandedId === song.id && (
               <div className="setlist-edit-panel" onClick={e => e.stopPropagation()}>
@@ -466,6 +566,12 @@ function Setlist({ currentUser }) {
                   <button className="setlist-save-btn" onClick={() => saveEdit(song.id)}>Save</button>
                   <button className="setlist-delete-btn" onClick={() => deleteSong(song.id)}>Delete</button>
                 </div>
+                {/* Recording attach section */}
+                <AttachRecordingPanel
+                  song={song}
+                  onAttach={rec => attachRecording(song.id, rec)}
+                  onRemove={() => removeRecording(song.id)}
+                />
               </div>
             )}
           </li>

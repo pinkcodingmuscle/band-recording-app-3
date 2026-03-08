@@ -12,7 +12,7 @@ import BandRoster from './components/BandRoster';
 import BandApplications from './components/BandApplications';
 import { CommentsProvider } from './context/CommentsContext';
 import { BandProvider, useBand } from './context/BandContext';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { isApiConfigured, apiMe, apiLogout } from './lib/api';
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
 // Rendered inside BandProvider so it can call useBand().
@@ -255,8 +255,8 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
 // ── App (auth + theme owner) ──────────────────────────────────────────────────
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  // True while we check for an existing Supabase session on page load
-  const [authLoading, setAuthLoading] = useState(isSupabaseConfigured);
+  // True while we check for an existing JWT session on page load
+  const [authLoading, setAuthLoading] = useState(isApiConfigured);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
   useEffect(() => {
@@ -264,29 +264,26 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Restore existing Supabase session after page refresh
+  // Restore existing session from JWT stored in localStorage
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const u = session.user;
-        const name = u.user_metadata?.username || u.email?.split('@')[0] || 'User';
-        const avatar = u.user_metadata?.avatar || '😎';
+    if (!isApiConfigured) return;
+    apiMe().then((user) => {
+      if (user) {
         const sessionId = 'sess' + Math.floor(10000 + Math.random() * 90000);
-        setCurrentUser({ id: u.id, username: name, email: u.email, avatar, sessionId, displayName: `${name}-${sessionId}` });
+        setCurrentUser({
+          id: user.id,
+          username: user.username,
+          avatar: user.avatar,
+          sessionId,
+          displayName: `${user.username}-${sessionId}`,
+        });
       }
       setAuthLoading(false);
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') setCurrentUser(null);
-    });
-    return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogout = async () => {
-    if (isSupabaseConfigured) await supabase.auth.signOut();
+  const handleLogout = () => {
+    apiLogout();
     setCurrentUser(null);
   };
 

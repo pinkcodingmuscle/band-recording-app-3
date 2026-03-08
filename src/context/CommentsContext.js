@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isApiConfigured, getSocket, apiGetComments, apiAddComment, apiDeleteComment } from '../lib/api';
 
 function genId() {
   return 'cmt-' + Math.random().toString(36).substring(2, 11);
@@ -81,20 +81,8 @@ const SEED_COMMENTS = [
 ];
 
 function rowToComment(row) {
-  return {
-    id: row.id,
-    trackId: row.track_id,
-    timeMs: row.time_ms,
-    type: row.type,
-    text: row.text,
-    audioUrl: null,
-    audioPath: row.audio_path,
-    audioDuration: row.audio_duration,
-    authorId: row.author_id,
-    authorName: row.author_name,
-    authorAvatar: row.author_avatar,
-    createdAt: row.created_at,
-  };
+  // API returns camelCase; this is kept only for the SEED_COMMENTS shape compatibility
+  return row;
 }
 
 export function CommentsProvider({ children, currentUser }) {
@@ -102,69 +90,54 @@ export function CommentsProvider({ children, currentUser }) {
   const [showComments, setShowComments] = useState(true);
   const [autoplayComments, setAutoplayComments] = useState(false);
 
-  // ── Load comments from Supabase (or fall back to seed data) ──
+  // ── Load comments from API (or fall back to seed data) ──
   useEffect(() => {
-    if (!isSupabaseConfigured) {
+    if (!isApiConfigured) {
       setComments(SEED_COMMENTS);
       return;
     }
 
-    supabase
-      .from('comments')
-      .select('*')
-      .order('created_at')
-      .then(({ data, error }) => {
-        setComments(!error && data && data.length > 0 ? data.map(rowToComment) : SEED_COMMENTS);
+    apiGetComments().then((data) => {
+      setComments(data && data.length > 0 ? data : SEED_COMMENTS);
+    });
+
+    // Real-time via Socket.io
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onAdd = (comment) => {
+      setComments(prev => {
+        const exists = prev.find(c => c.id === comment.id);
+        return exists ? prev.map(c => c.id === comment.id ? comment : c) : [...prev, comment];
       });
+    };
+    const onRemove = (id) => setComments(prev => prev.filter(c => c.id !== id));
 
-    // Real-time subscription
-    const channel = supabase
-      .channel('comments-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'comments' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setComments(prev => [...prev, rowToComment(payload.new)]);
-          } else if (payload.eventType === 'DELETE') {
-            setComments(prev => prev.filter(c => c.id !== payload.old.id));
-          } else if (payload.eventType === 'UPDATE') {
-            setComments(prev => prev.map(c => c.id === payload.new.id ? rowToComment(payload.new) : c));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
+    socket.on('comment-add', onAdd);
+    socket.on('comment-remove', onRemove);
+    return () => {
+      socket.off('comment-add', onAdd);
+      socket.off('comment-remove', onRemove);
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addComment = useCallback(async (comment) => {
-    if (isSupabaseConfigured) {
-      // Let the DB generate the row and rely on realtime to push back;
-      // also do an optimistic local insert so the UI feels instant.
+    if (isApiConfigured) {
       const tempId = genId();
       const optimistic = { ...comment, id: tempId, createdAt: new Date().toISOString() };
       setComments(prev => [...prev, optimistic]);
 
-      const { data, error } = await supabase
-        .from('comments')
-        .insert({
-          track_id: comment.trackId,
-          time_ms: comment.timeMs,
-          type: comment.type,
-          text: comment.text ?? null,
-          audio_path: comment.audioPath ?? null,
-          audio_duration: comment.audioDuration ?? null,
-          author_id: currentUser?.id ?? null,
-          author_name: currentUser?.username ?? 'Unknown',
-          author_avatar: currentUser?.avatar ?? '🎵',
-        })
-        .select()
-        .single();
+      const saved = await apiAddComment({
+        ...comment,
+        id: tempId,
+        authorName: currentUser?.username ?? 'Unknown',
+        authorAvatar: currentUser?.avatar ?? '🎵',
+      });
 
-      if (!error && data) {
-        // Replace the temp optimistic entry with the real DB row
-        setComments(prev => prev.map(c => c.id === tempId ? rowToComment(data) : c));
+      if (saved) {
+        setComments(prev => prev.map(c => c.id === tempId ? saved : c));
+        const socket = getSocket();
+        if (socket) socket.emit('comment-add', saved);
       }
     } else {
       setComments(prev => [
@@ -176,8 +149,10 @@ export function CommentsProvider({ children, currentUser }) {
 
   const removeComment = useCallback(async (id) => {
     setComments(prev => prev.filter(c => c.id !== id));
-    if (isSupabaseConfigured) {
-      await supabase.from('comments').delete().eq('id', id);
+    if (isApiConfigured) {
+      await apiDeleteComment(id);
+      const socket = getSocket();
+      if (socket) socket.emit('comment-remove', id);
     }
   }, []);
 

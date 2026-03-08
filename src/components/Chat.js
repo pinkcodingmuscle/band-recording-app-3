@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import './Chat.css';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isApiConfigured, getSocket, apiGetChatHistory } from '../lib/api';
 
 function Chat({ users, compact = false, fullScreen = false, currentUser }) {
   // Generate initial messages from actual band members (used as fallback when Supabase isn't configured)
   const [messages, setMessages] = useState(() => {
-    if (isSupabaseConfigured) return [];
+    if (isApiConfigured) return [];
 
     const initialMessages = [];
     const messageTemplates = [
@@ -45,50 +45,26 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // ── Load chat history from Supabase and subscribe to new messages ──
+  // ── Load chat history from API and subscribe to new messages via Socket.io ──
   useEffect(() => {
-    if (!isSupabaseConfigured || !currentUser?.sessionId) return;
+    if (!isApiConfigured || !currentUser?.sessionId) return;
 
-    supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('session_id', currentUser.sessionId)
-      .order('created_at')
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          setMessages(data.map(m => ({
-            id: m.id,
-            user: m.author_name,
-            text: m.text,
-            time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            avatar: m.author_avatar,
-            type: 'message',
-          })));
-        }
-      });
+    apiGetChatHistory(currentUser.sessionId).then((data) => {
+      if (data && data.length > 0) setMessages(data);
+    });
 
-    const channel = supabase
-      .channel(`chat-${currentUser.sessionId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `session_id=eq.${currentUser.sessionId}` },
-        (payload) => {
-          const m = payload.new;
-          // Skip if it's the current user's own message (already added optimistically)
-          if (m.author_id === currentUser.id) return;
-          setMessages(prev => [...prev, {
-            id: m.id,
-            user: m.author_name,
-            text: m.text,
-            time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            avatar: m.author_avatar,
-            type: 'message',
-          }]);
-        }
-      )
-      .subscribe();
+    const socket = getSocket();
+    if (!socket) return;
 
-    return () => supabase.removeChannel(channel);
+    socket.emit('join-session', currentUser.sessionId);
+
+    const onMessage = (m) => {
+      // Skip own messages already added optimistically
+      if (m.user === (currentUser.displayName || currentUser.username)) return;
+      setMessages(prev => [...prev, m]);
+    };
+    socket.on('chat-message', onMessage);
+    return () => socket.off('chat-message', onMessage);
   }, [currentUser?.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Request notification permission on mount
@@ -242,14 +218,17 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
       setNewMessage('');
       setShowMentions(false);
 
-      if (isSupabaseConfigured && currentUser) {
-        await supabase.from('chat_messages').insert({
-          session_id: currentUser.sessionId,
-          author_id: currentUser.id,
-          author_name: currentUser.displayName || currentUser.username,
-          author_avatar: currentUser.avatar || '😎',
-          text: newMessage.trim(),
-        });
+      if (isApiConfigured && currentUser) {
+        const socket = getSocket();
+        if (socket) {
+          socket.emit('chat-message', {
+            sessionId: currentUser.sessionId,
+            authorId: currentUser.id,
+            authorName: currentUser.displayName || currentUser.username,
+            authorAvatar: currentUser.avatar || '😎',
+            text: newMessage.trim(),
+          });
+        }
       }
     }
   };

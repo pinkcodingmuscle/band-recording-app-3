@@ -214,3 +214,253 @@
   font-size: 0.9rem;
   margin-top: 32px;
 }
+
+/* ─── Play button on each row ────────────────────────────────── */
+.sl-play-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.sl-play-btn.has-recording {
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+}
+.sl-play-btn.has-recording:hover {
+  background: var(--accent-bg);
+}
+.sl-play-btn.no-recording {
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+.sl-play-btn.no-recording:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+/* ─── Audio mini-player ──────────────────────────────────────── */
+.sl-miniplayer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+.sl-mp-no-audio {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  justify-content: space-between;
+}
+.sl-mp-label {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+.sl-mp-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 5px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sl-mp-btn:hover { background: var(--bg-hover); }
+.sl-mp-play {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+}
+.sl-mp-play:hover { background: var(--accent-hover); }
+.sl-mp-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 32px;
+}
+.sl-mp-scrubber {
+  flex: 1;
+  min-width: 60px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+.sl-mp-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 4px 6px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+.sl-mp-close:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* ─── YouTube mini-player ────────────────────────────────────── */
+.sl-yt-player {
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  padding: 12px 16px;
+}
+.sl-yt-iframe-wrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.sl-yt-iframe-wrap iframe {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 8px;
+}
+.sl-yt-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* ─── Attach recording panel ─────────────────────────────────── */
+.sl-attach-panel {
+  width: 100%;
+  border-top: 1px solid var(--border-color);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+.sl-attach-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.sl-attach-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.03em;
+}
+.sl-attach-remove {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0;
+}
+.sl-attach-remove:hover { text-decoration: underline; }
+.sl-attach-current {
+  font-size: 0.8rem;
+  color: var(--accent-primary);
+  background: var(--accent-bg);
+  border-radius: 6px;
+  padding: 5px 10px;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* tabs */
+.sl-tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.sl-tab {
+  padding: 5px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.sl-tab:hover { color: var(--text-primary); }
+.sl-tab.active {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.sl-tab-body { margin-bottom: 8px; }
+.sl-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sl-full-width { width: 100%; }
+
+/* file upload */
+.sl-file-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.sl-file-input {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+
+/* YouTube row */
+.sl-yt-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.sl-yt-fetch-btn {
+  white-space: nowrap;
+  padding: 7px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 7px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.sl-yt-fetch-btn:hover:not(:disabled) { background: var(--bg-hover); }
+.sl-yt-fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.sl-attach-btn { margin-top: 4px; }
+
+.sl-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.sl-error {
+  font-size: 0.78rem;
+  color: var(--danger);
+  margin: 0;
+}

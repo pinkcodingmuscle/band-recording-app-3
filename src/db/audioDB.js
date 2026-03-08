@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isApiConfigured, apiUploadAudio, apiGetAudioUrl, apiDeleteAudio } from '../lib/api';
 
 // ── IndexedDB (local fallback) ────────────────────────────────────────────────
 const DB_NAME = 'bandlab-audio';
@@ -45,24 +45,16 @@ async function deleteAudioBlobLocal(id) {
   });
 }
 
-// ── Supabase Storage ──────────────────────────────────────────────────────────
-const BUCKET = 'audio-tracks';
-
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Save an audio blob.
- *   Supabase: uploads to Storage and returns the storage path (string).
+ *   API: uploads to GridFS and returns the file ID string (audioPath).
  *   IndexedDB fallback: returns undefined.
  */
 export async function saveAudioBlob(id, blob) {
-  if (isSupabaseConfigured) {
-    const path = `tracks/${id}.webm`;
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, blob, { upsert: true, contentType: blob.type || 'audio/webm' });
-    if (error) throw error;
-    return path;
+  if (isApiConfigured) {
+    return apiUploadAudio(id, blob); // returns GridFS file ID string
   }
   await saveAudioBlobLocal(id, blob);
   return undefined;
@@ -70,17 +62,13 @@ export async function saveAudioBlob(id, blob) {
 
 /**
  * Load audio as a usable URL.
- *   Supabase: returns a 1-hour signed URL (string).
- *   IndexedDB fallback: returns a blob: URL (string).
- *   Either way the caller can use the string directly as <audio src>.
+ *   API: returns a direct streaming URL (no network request needed).
+ *   IndexedDB fallback: returns a blob: URL.
+ *   Either way the caller uses the string as <audio src>.
  */
 export async function loadAudioBlob(id, audioPath) {
-  if (isSupabaseConfigured && audioPath) {
-    const { data, error } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(audioPath, 3600);
-    if (error || !data?.signedUrl) return null;
-    return data.signedUrl;
+  if (isApiConfigured && audioPath) {
+    return apiGetAudioUrl(audioPath); // sync string — no await needed but async for consistent API
   }
   // IndexedDB fallback
   const blob = await loadAudioBlobLocal(id);
@@ -89,12 +77,12 @@ export async function loadAudioBlob(id, audioPath) {
 
 /**
  * Delete an audio blob.
- *   Supabase: removes from Storage.
+ *   API: removes from GridFS.
  *   IndexedDB fallback: removes from IndexedDB.
  */
 export async function deleteAudioBlob(id, audioPath) {
-  if (isSupabaseConfigured && audioPath) {
-    await supabase.storage.from(BUCKET).remove([audioPath]);
+  if (isApiConfigured && audioPath) {
+    await apiDeleteAudio(audioPath);
     return;
   }
   await deleteAudioBlobLocal(id);

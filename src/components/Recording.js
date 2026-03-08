@@ -5,7 +5,7 @@ import CommentRail from './CommentRail';
 import AddCommentModal from './AddCommentModal';
 import { useComments } from '../context/CommentsContext';
 import { saveAudioBlob, loadAudioBlob, deleteAudioBlob } from '../db/audioDB';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isApiConfigured, apiGetTracks, apiUpsertTracks, apiDeleteTrack } from '../lib/api';
 
 const TRACKS_KEY = 'bandlab-tracks-v1';
 const SEED_TRACKS = [
@@ -15,40 +15,9 @@ const SEED_TRACKS = [
   { id: 4, name: 'Vocals',      duration: '3:40', waveform: '▃▄▅▆▅▄▃▂▃▄▅▄',   status: 'recorded', volume: 85, muted: false, solo: false, audioUrl: null, audioExt: null, audioPath: null, hasAudio: false },
 ];
 
-// Map a DB row (snake_case) → track object (camelCase)
-function rowToTrack(row) {
-  return {
-    id: row.id,
-    name: row.name,
-    duration: row.duration,
-    waveform: row.waveform,
-    status: row.status,
-    volume: row.volume,
-    muted: row.muted,
-    solo: row.solo,
-    hasAudio: row.has_audio,
-    audioPath: row.audio_path,
-    audioExt: row.audio_ext,
-    audioUrl: null, // ephemeral; rehydrated separately
-  };
-}
-
-// Map a track object → DB row (snake_case)
-function trackToRow(track, userId) {
-  return {
-    id: track.id,
-    user_id: userId,
-    name: track.name,
-    duration: track.duration,
-    waveform: track.waveform,
-    status: track.status,
-    volume: track.volume,
-    muted: track.muted,
-    solo: track.solo,
-    has_audio: track.hasAudio,
-    audio_path: track.audioPath || null,
-    audio_ext: track.audioExt || null,
-  };
+// API returns camelCase directly; no mapping needed
+function trackFromApi(t) {
+  return { ...t, audioUrl: null }; // audioUrl is ephemeral — rehydrated separately
 }
 
 function loadSavedTracks() {
@@ -120,24 +89,19 @@ function Recording({ activeSession, currentUser }) {
     };
   }, [isPlaying]);
 
-  // ── On mount: load track metadata from Supabase or localStorage ──
+  // ── On mount: load track metadata from API or localStorage ──
   useEffect(() => {
     let cancelled = false;
     async function loadTracks() {
-      if (isSupabaseConfigured && currentUser?.id) {
-        const { data, error } = await supabase
-          .from('tracks')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('id');
+      if (isApiConfigured && currentUser?.id) {
+        const data = await apiGetTracks();
         if (!cancelled) {
-          if (!error && data && data.length > 0) {
-            setTracks(data.map(rowToTrack));
+          if (data && data.length > 0) {
+            setTracks(data.map(trackFromApi));
           } else {
-            // First visit: seed Supabase with default tracks
-            const seeds = SEED_TRACKS;
-            await supabase.from('tracks').upsert(seeds.map(t => trackToRow(t, currentUser.id)));
-            if (!cancelled) setTracks(seeds);
+            // First visit: seed API with default tracks
+            await apiUpsertTracks(SEED_TRACKS);
+            if (!cancelled) setTracks(SEED_TRACKS);
           }
           setTracksLoading(false);
         }
@@ -155,9 +119,8 @@ function Recording({ activeSession, currentUser }) {
   // ── Persist track metadata whenever tracks change ──
   useEffect(() => {
     if (tracksLoading) return;
-    if (isSupabaseConfigured && currentUser?.id) {
-      const rows = tracks.map(t => trackToRow(t, currentUser.id));
-      supabase.from('tracks').upsert(rows).then(() => {}); // fire-and-forget
+    if (isApiConfigured && currentUser?.id) {
+      apiUpsertTracks(tracks); // fire-and-forget
     } else {
       const toSave = tracks.map(({ audioUrl, ...rest }) => rest);
       localStorage.setItem(TRACKS_KEY, JSON.stringify(toSave));
@@ -409,8 +372,8 @@ function Recording({ activeSession, currentUser }) {
     const node = audioNodesRef.current[id];
     if (node) { node.pause(); delete audioNodesRef.current[id]; }
     if (track?.hasAudio) deleteAudioBlob(id, track.audioPath).catch(() => {});
-    if (isSupabaseConfigured && currentUser?.id) {
-      supabase.from('tracks').delete().eq('id', id).then(() => {});
+    if (isApiConfigured && currentUser?.id) {
+      apiDeleteTrack(id);
     }
     setTracks(tracks.filter(track => track.id !== id));
   };

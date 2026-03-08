@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './Login.css';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isApiConfigured, apiSignup, apiLogin } from '../lib/api';
 
 const AVATARS = ['😎', '🎸', '🎤', '🎹', '🥁', '🎵', '🎼', '🎧', '🎺', '🎷'];
 const randomAvatar = () => AVATARS[Math.floor(Math.random() * AVATARS.length)];
@@ -36,41 +36,24 @@ function Login({ onLogin }) {
       return;
     }
 
-    if (isSupabaseConfigured) {
+    if (isApiConfigured) {
       setLoading(true);
       try {
         if (isSignup) {
           const avatar = randomAvatar();
-          const { data, error: err } = await supabase.auth.signUp({
-            email: email.trim(),
-            password,
-            options: { data: { username: displayName.trim(), avatar } },
-          });
-          if (err) { setError(err.message); return; }
-          if (data.user) {
-            onLogin(buildUser(data.user.id, displayName.trim(), avatar));
-          } else {
-            setError('Check your email for a confirmation link before logging in.');
-          }
+          const user = await apiSignup(email.trim(), password, displayName.trim(), avatar);
+          onLogin(buildUser(user.id, user.username, user.avatar));
         } else {
-          const { data, error: err } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
-          });
-          if (err) { setError(err.message); return; }
-          if (data.user) {
-            const name = data.user.user_metadata?.username || email.split('@')[0];
-            const avatar = data.user.user_metadata?.avatar || '😎';
-            onLogin(buildUser(data.user.id, name, avatar));
-          }
+          const user = await apiLogin(email.trim(), password);
+          onLogin(buildUser(user.id, user.username, user.avatar));
         }
-      } catch {
-        setError('Something went wrong. Please try again.');
+      } catch (err) {
+        setError(err.message || 'Something went wrong. Please try again.');
       } finally {
         setLoading(false);
       }
     } else {
-      // Local fallback — no Supabase configured
+      // Local fallback — no API configured
       const name = (isSignup ? displayName.trim() : null) || email.split('@')[0] || email.trim();
       onLogin(buildUser(Date.now(), name, randomAvatar()));
     }
