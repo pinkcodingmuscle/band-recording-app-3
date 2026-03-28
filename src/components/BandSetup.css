@@ -264,3 +264,17 @@ select.create-input option { background: var(--bg-secondary); }
   color: var(--danger);
 }
 .setup-btn.danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+/* ── Inline mode (rendered inside AppShell tab, not full-screen) ── */
+.band-setup-inline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 400px;
+}
+
+.band-setup-inline .band-setup-card {
+  max-width: 560px;
+  width: 100%;
+}

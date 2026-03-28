@@ -24,8 +24,11 @@ Update the status column and the relevant proposal file header whenever work sta
 |---|---|---|---|
 | App Design Specification | [DESIGN_SPEC.md](DESIGN_SPEC.md) | ✅ Implemented | Mar 4, 2026 |
 | Band Management & Membership | [BAND_MANAGEMENT.md](BAND_MANAGEMENT.md) | ✅ Implemented | Mar 4, 2026 |
+| Login Experience Improvements | [LOGIN_EXPERIENCE_IMPROVEMENTS.md](LOGIN_EXPERIENCE_IMPROVEMENTS.md) | ✅ Implemented | Mar 28, 2026 |
+| Login Experience Improvements | [LOGIN_EXPERIENCE_IMPROVEMENTS.md](LOGIN_EXPERIENCE_IMPROVEMENTS.md) | ✅ Implemented | Mar 28, 2026 |
 | Backend Migration — Supabase | [BACKEND_MIGRATION_PROPOSAL.md](BACKEND_MIGRATION_PROPOSAL.md) | 🔄 In Progress | Mar 4, 2026 |
 | Setlist Playback & Recording Attachment | [SETLIST_PLAYBACK_PROPOSAL.md](SETLIST_PLAYBACK_PROPOSAL.md) | 📋 Planned | Mar 4, 2026 |
+| UX Improvements (12 proposals) | [UX_IMPROVEMENTS_PROPOSAL.md](UX_IMPROVEMENTS_PROPOSAL.md) | 📋 Planned | Mar 28, 2026 |
 
 ---
 
@@ -60,6 +63,24 @@ Post-login band onboarding, role system (Band Lead / Member / Applicant), applic
 | BandRoster — view filled & open positions | ✅ |
 | Band context (`BandContext.js`) | ✅ |
 | Awaiting approval screen for applicants | ✅ |
+
+---
+
+### Login Experience Improvements
+**File:** [LOGIN_EXPERIENCE_IMPROVEMENTS.md](LOGIN_EXPERIENCE_IMPROVEMENTS.md)
+
+Removed the hard band gate that blocked users from the app. Users now land in the full app shell after login, with a dismissible status banner and per-tab locking for band-dependent features.
+
+| Feature | Status |
+|---|---|
+| Remove full-screen BandSetup gate | ✅ |
+| Sticky band status banner (no band / pending) | ✅ |
+| Dismiss banner with re-show on status change | ✅ |
+| Calendar & Dashboard accessible without band | ✅ |
+| Studio tab locked with CTA when no band | ✅ |
+| Chat tab locked with CTA when no band | ✅ |
+| Band tab shows BandSetup inline when no band | ✅ |
+| BandSetup `inline` prop (no double background) | ✅ |
 
 ---
 
@@ -104,6 +125,28 @@ Attach a reference recording to each song in the setlist. Sources: band track (f
 | Attach panel — ▶ YouTube tab (URL → videoId) | 📋 | |
 | Detach / replace recording | 📋 | |
 | Persist songs to `bandlab-setlist-v2` in localStorage | 📋 | Replaces current in-memory-only state |
+
+---
+
+### UX Improvements (12 proposals)
+**File:** [UX_IMPROVEMENTS_PROPOSAL.md](UX_IMPROVEMENTS_PROPOSAL.md)
+
+Twelve independent UX improvements covering feedback, discoverability, accessibility, and workflow efficiency. Any item can be shipped in isolation.
+
+| Proposal | Status |
+|---|---|
+| 1 — Export / Download Individual Track Audio | 📋 |
+| 2 — Empty-State Illustrations with Action Prompts | 📋 |
+| 3 — Toast / Snackbar Notification System | 📋 |
+| 4 — Keyboard Shortcuts for the DAW | 📋 |
+| 5 — Session Invite Link / QR Code | 📋 |
+| 6 — Pre-Recording Countdown + Click Track | 📋 |
+| 7 — Onboarding Walkthrough for First-Time Users | 📋 |
+| 8 — Real Waveform Visualization (Canvas) | 📋 |
+| 9 — Track Review Statuses | 📋 |
+| 10 — Drag-and-Drop Track Reordering | 📋 |
+| 11 — Mobile Bottom Navigation Bar | 📋 |
+| 12 — Project Activity Feed | 📋 |
 
 ---
 

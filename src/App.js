@@ -17,13 +17,14 @@ import { isApiConfigured, apiMe, apiLogout } from './lib/api';
 // ── AppShell ──────────────────────────────────────────────────────────────────
 // Rendered inside BandProvider so it can call useBand().
 function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
-  const { userBand, pendingApplicationCount } = useBand();
+  const { userBand, pendingApplicationCount, userPendingApp, refreshBands, withdrawApplication } = useBand();
 
   const [activeSession, setActiveSession] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showSidebar, setShowSidebar] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Derive real members from the band roster
   const bandMembers = userBand
@@ -90,14 +91,44 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
 
   const isMobile = windowWidth < 768;
 
-  // Band gate — show onboarding if user has no confirmed position
-  if (!userBand) {
-    return <BandSetup currentUser={currentUser} />;
-  }
+  // Re-show banner if user's band status changes (e.g. they just left a band)
+  useEffect(() => {
+    if (!userBand) setBannerDismissed(false);
+  }, [userBand?.id]);
 
   return (
     <CommentsProvider currentUser={currentUser}>
       <div className="App">
+        {/* Band status banner — shown when user has no confirmed band position */}
+        {!userBand && !bannerDismissed && (
+          <div className="band-status-banner">
+            <div className="band-status-banner-content">
+              {userPendingApp ? (
+                <>
+                  <span className="banner-icon">⏳</span>
+                  <span className="banner-text">
+                    Your application to <strong>{userPendingApp.bandName}</strong> ({userPendingApp.positionEmoji} {userPendingApp.positionTitle}) is pending approval.
+                  </span>
+                  <button className="banner-btn" onClick={refreshBands}>🔄 Check Status</button>
+                  <button
+                    className="banner-btn danger"
+                    onClick={() => withdrawApplication(userPendingApp.bandId, userPendingApp.id)}
+                  >
+                    Withdraw
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="banner-icon">🎸</span>
+                  <span className="banner-text">You're not in a band yet. Join or create one to unlock all features.</span>
+                  <button className="banner-btn" onClick={() => setActiveTab('community')}>Find a Band →</button>
+                </>
+              )}
+            </div>
+            <button className="banner-dismiss" onClick={() => setBannerDismissed(true)} title="Dismiss">✕</button>
+          </div>
+        )}
+
         {/* Top Navigation Bar */}
         <nav className="top-nav">
           <div className="nav-left">
@@ -199,7 +230,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
                   onSelectSession={setActiveSession}
                 />
               )}
-              {activeTab === 'community' && (
+              {activeTab === 'community' && userBand && (
                 <BandApplications currentUser={currentUser} />
               )}
               {activeTab === 'projects' && (
@@ -220,7 +251,16 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
             {activeTab === 'calendar' && <BandCalendar />}
             {activeTab === 'setlist' && <Setlist currentUser={currentUser} />}
             {activeTab === 'studio' && (
-              <Recording activeSession={activeSession} currentUser={currentUser} />
+              userBand
+                ? <Recording activeSession={activeSession} currentUser={currentUser} />
+                : (
+                  <div className="tab-locked">
+                    <span className="tab-locked-icon">🎙️</span>
+                    <h2>Studio is locked</h2>
+                    <p>Join or create a band to start recording sessions with your bandmates.</p>
+                    <button className="tab-locked-btn" onClick={() => setActiveTab('community')}>Find a Band →</button>
+                  </div>
+                )
             )}
             {activeTab === 'projects' && (
               <div className="projects-view">
@@ -233,15 +273,26 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
               </div>
             )}
             {activeTab === 'community' && (
-              <BandRoster currentUser={currentUser} />
+              userBand
+                ? <BandRoster currentUser={currentUser} />
+                : <BandSetup currentUser={currentUser} inline />
             )}
             {activeTab === 'chat' && (
-              <Chat users={bandMembers} fullScreen={true} />
+              userBand
+                ? <Chat users={bandMembers} fullScreen={true} />
+                : (
+                  <div className="tab-locked">
+                    <span className="tab-locked-icon">💬</span>
+                    <h2>Chat is locked</h2>
+                    <p>Join a band to chat with your bandmates in real time.</p>
+                    <button className="tab-locked-btn" onClick={() => setActiveTab('community')}>Find a Band →</button>
+                  </div>
+                )
             )}
           </main>
 
-          {/* Right Panel — Studio only */}
-          {activeTab === 'studio' && (
+          {/* Right Panel — Studio only (only when in a band) */}
+          {activeTab === 'studio' && userBand && (
             <aside className="right-sidebar">
               <Chat users={bandMembers} compact={true} />
             </aside>

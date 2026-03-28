@@ -4,7 +4,7 @@ import BandCreate from './BandCreate';
 import BandBrowse from './BandBrowse';
 import './BandSetup.css';
 
-function BandSetup({ currentUser }) {
+function BandSetup({ currentUser, inline = false }) {
   const { userPendingApp, refreshBands, withdrawApplication } = useBand();
   const [view, setView] = useState(() => (userPendingApp ? 'pending' : 'choose'));
 
@@ -27,10 +27,8 @@ function BandSetup({ currentUser }) {
 
   if (view === 'pending') {
     return (
-      <div className="band-setup-container">
-        <div className="band-setup-background">
-          <div className="setup-pattern" />
-        </div>
+      <div className={inline ? 'band-setup-inline' : 'band-setup-container'}>
+        {!inline && <div className="band-setup-background"><div className="setup-pattern" /></div>}
         <div className="band-setup-card pending-card">
           <div className="pending-header">
             <span className="pending-icon">⏳</span>
@@ -70,10 +68,8 @@ function BandSetup({ currentUser }) {
 
   // 'choose' view — default
   return (
-    <div className="band-setup-container">
-      <div className="band-setup-background">
-        <div className="setup-pattern" />
-      </div>
+    <div className={inline ? 'band-setup-inline' : 'band-setup-container'}>
+      {!inline && <div className="band-setup-background"><div className="setup-pattern" /></div>}
       <div className="band-setup-card choose-card">
         <div className="setup-header">
           <h1 className="setup-logo">🎵 BandLab Studio</h1>
