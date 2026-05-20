@@ -26,6 +26,8 @@ const io = new Server(httpServer, {
 app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
 app.use(express.json());
 
+app.get('/', (_req, res) => res.json({ status: 'ok' }));
+
 app.use('/api/auth', authRouter);
 app.use('/api/tracks', tracksRouter);
 app.use('/api/audio', audioRouter);
