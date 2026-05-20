@@ -1,55 +1,59 @@
 import express from 'express';
 import multer, { memoryStorage } from 'multer';
-import mongoose from 'mongoose';
-import { getGFS } from '../db.js';
+import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
 import verifyJWT from '../middleware/auth.js';
 
 const router = express.Router();
 const upload = multer({ storage: new memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
-// POST /api/audio/upload/:trackId — multipart upload → GridFS
+const BUCKET = 'audio';
+
+// Lazy-initialize so createClient runs on first request, not at import time.
+// This avoids a WebSocket hang during server startup on Node < 22.
+let _supabase = null;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY,
+      { realtime: { transport: ws } }
+    );
+  }
+  return _supabase;
+}
+
+// POST /api/audio/upload/:trackId — multipart upload → Supabase Storage
 router.post('/upload/:trackId', verifyJWT, upload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
   try {
-    const { buffer, mimetype, originalname } = req.file;
-    const gfs = getGFS();
-    const uploadStream = gfs.openUploadStream(originalname || `track-${req.params.trackId}.webm`, {
-      contentType: mimetype || 'audio/webm',
-      metadata: { trackId: req.params.trackId, userId: req.user.userId },
-    });
-    uploadStream.end(buffer);
-    await new Promise((resolve, reject) => {
-      uploadStream.on('finish', resolve);
-      uploadStream.on('error', reject);
-    });
-    res.json({ audioPath: uploadStream.id.toString() });
+    const { buffer, mimetype } = req.file;
+    const ext = mimetype === 'audio/webm' ? 'webm' : 'mp4';
+    const storagePath = `${req.user.userId}/${req.params.trackId}.${ext}`;
+
+    const { error } = await getSupabase().storage
+      .from(BUCKET)
+      .upload(storagePath, buffer, {
+        contentType: mimetype || 'audio/webm',
+        upsert: true,
+      });
+
+    if (error) throw error;
+
+    const { data } = getSupabase().storage.from(BUCKET).getPublicUrl(storagePath);
+    res.json({ audioPath: data.publicUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/audio/:fileId — stream audio (no auth; safe as public URL with opaque GridFS ObjectId)
-router.get('/:fileId', async (req, res) => {
+// DELETE /api/audio — body: { storagePath: "userId/trackId.webm" }
+router.delete('/', verifyJWT, async (req, res) => {
   try {
-    const fileId = new mongoose.Types.ObjectId(req.params.fileId);
-    const gfs = getGFS();
-    const files = await gfs.find({ _id: fileId }).toArray();
-    if (!files.length) return res.status(404).json({ error: 'Audio file not found' });
-    res.set('Content-Type', files[0].contentType || 'audio/webm');
-    res.set('Accept-Ranges', 'bytes');
-    const downloadStream = gfs.openDownloadStream(fileId);
-    downloadStream.on('error', () => res.status(404).end());
-    downloadStream.pipe(res);
-  } catch {
-    res.status(400).json({ error: 'Invalid file ID' });
-  }
-});
-
-// DELETE /api/audio/:fileId
-router.delete('/:fileId', verifyJWT, async (req, res) => {
-  try {
-    const fileId = new mongoose.Types.ObjectId(req.params.fileId);
-    await getGFS().delete(fileId);
+    const { storagePath } = req.body;
+    if (!storagePath) return res.status(400).json({ error: 'storagePath required' });
+    const { error } = await getSupabase().storage.from(BUCKET).remove([storagePath]);
+    if (error) throw error;
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

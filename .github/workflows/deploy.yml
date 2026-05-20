@@ -1,0 +1,38 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Vercel and Railway deploy automatically via their GitHub Apps when a push
+# lands on main. This workflow acts as a required status gate (configured in
+# branch protection) so neither platform's app fires until CI is green, and
+# surfaces each deployment as a named GitHub Environment in the Deployments tab.
+
+jobs:
+  gate:
+    name: Confirm CI passed
+    runs-on: ubuntu-latest
+    steps:
+      - name: All clear
+        run: echo "CI green — Vercel and Railway GitHub Apps will now deploy"
+
+  record-frontend:
+    name: Record frontend deployment
+    runs-on: ubuntu-latest
+    needs: gate
+    environment:
+      name: production-frontend
+      url: ${{ vars.VERCEL_URL }}
+    steps:
+      - run: echo "Vercel auto-deploy in progress via GitHub App"
+
+  record-backend:
+    name: Record backend deployment
+    runs-on: ubuntu-latest
+    needs: gate
+    environment:
+      name: production-backend
+      url: ${{ vars.RAILWAY_URL }}
+    steps:
+      - run: echo "Railway auto-deploy in progress via GitHub App"

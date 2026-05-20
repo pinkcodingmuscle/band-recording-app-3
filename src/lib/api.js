@@ -117,17 +117,23 @@ export async function apiUploadAudio(trackId, blob) {
 }
 
 /**
- * Build a direct streaming URL for a GridFS file.
- * No network request — just a string. Works directly in <audio src>.
+ * audioPath is now a full Supabase public URL — return it as-is.
+ * The browser uses it directly as <audio src>; no Express proxy needed.
  */
 export function apiGetAudioUrl(audioPath) {
-  return `${BASE}/api/audio/${audioPath}`;
+  return audioPath;
 }
 
 export async function apiDeleteAudio(audioPath) {
-  await fetch(`${BASE}/api/audio/${audioPath}`, {
+  // Extract the storage path from the full Supabase URL.
+  // e.g. "https://xxx.supabase.co/storage/v1/object/public/audio/userId/trackId.webm"
+  //   → storagePath: "userId/trackId.webm"
+  const url = new URL(audioPath);
+  const storagePath = url.pathname.split('/object/public/audio/')[1];
+  await fetch(`${BASE}/api/audio`, {
     method: 'DELETE',
     headers: authHeaders(),
+    body: JSON.stringify({ storagePath }),
   });
 }
 
