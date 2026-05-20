@@ -111,11 +111,61 @@ Main recording interface with controls for recording, playback, and mixing.
 - `npm test` - Launches the test runner
 - `npm eject` - Ejects from Create React App (one-way operation)
 
+## 🚢 Deployment
+
+### Live URLs
+- **Frontend (Vercel):** https://band-recording-app-3.vercel.app
+- **Backend (Railway):** https://band-recording-app-3-production.up.railway.app
+
+### Services Used
+| Service | Purpose |
+|---|---|
+| [Vercel](https://vercel.com) | Frontend hosting (Vite/React) |
+| [Railway](https://railway.app) | Backend hosting (Express + Socket.IO) |
+| [MongoDB Atlas](https://cloud.mongodb.com) | Database (cluster: `cluster0.n4fivmd.mongodb.net`) |
+| [Supabase](https://supabase.com) | Audio file storage |
+
+### Environment Variables
+
+**Frontend — Vercel Project Settings → Environment Variables:**
+```
+VITE_API_URL=https://band-recording-app-3-production.up.railway.app
+VITE_SUPABASE_URL=https://tfrekbhgzbidsezotpvl.supabase.co
+VITE_SUPABASE_ANON_KEY=<supabase anon key>
+```
+
+**Backend — Railway Service → Variables:**
+```
+MONGO_URI=mongodb+srv://<user>:<password>@cluster0.n4fivmd.mongodb.net/bandlab?retryWrites=true&w=majority&appName=Cluster0
+JWT_SECRET=<strong random secret, min 64 chars>
+PORT=4000
+CLIENT_ORIGIN=https://band-recording-app-3.vercel.app
+SUPABASE_URL=https://tfrekbhgzbidsezotpvl.supabase.co
+SUPABASE_SERVICE_KEY=<supabase service role key>
+```
+
+**Local development — `server/.env`:**
+```
+MONGO_URI=mongodb+srv://...    # Atlas URI
+JWT_SECRET=...
+PORT=4000
+CLIENT_ORIGIN=http://localhost:5173
+SUPABASE_URL=https://tfrekbhgzbidsezotpvl.supabase.co
+SUPABASE_SERVICE_KEY=...
+```
+
+**Local development — `.env` (root):**
+```
+VITE_API_URL=http://localhost:4000
+```
+
+### Railway Configuration
+- **Root Directory:** `server/`
+- **Start command:** `node index.js` (set in `server/railway.toml`)
+
 ## 🎯 Future Enhancements
 
 - WebRTC integration for real-time audio streaming
-- Cloud storage for recorded tracks
-- User authentication and authorization
 - Waveform visualization with actual audio data
 - Export tracks in various formats
 - Collaborative mixing features
@@ -129,6 +179,4 @@ This project is open source and available for educational purposes.
 
 Contributions, issues, and feature requests are welcome!
 
----
 
-Made with ❤️ for musicians and bands

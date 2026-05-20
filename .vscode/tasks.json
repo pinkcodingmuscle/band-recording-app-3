@@ -28,6 +28,104 @@
 			"command": "npm start",
 			"isBackground": true,
 			"problemMatcher": []
+		},
+		{
+			"label": "Frontend (Vite)",
+			"type": "shell",
+			"command": "npm start",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Backend (Express)",
+			"type": "shell",
+			"command": "cd server && npm start",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Start Frontend Dev Server",
+			"type": "shell",
+			"command": "pkill -f 'node.*vite' 2>/dev/null; pkill -f 'node index.js' 2>/dev/null; sleep 1; npm start",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Start Backend Server",
+			"type": "shell",
+			"command": "cd server && npm start",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Port 3000",
+			"type": "shell",
+			"command": "python3 -c \"import socket; s=socket.socket(); r=s.connect_ex(('127.0.0.1',3000)); print('PORT 3000:', 'IN USE' if r==0 else 'FREE'); s.close()\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Free Port 3000",
+			"type": "shell",
+			"command": "lsof -nP -iTCP:3000 -sTCP:LISTEN; echo '---'; pkill -f 'node.*vite' 2>/dev/null && echo 'killed vite' || echo 'nothing to kill'; sleep 1; lsof -nP -iTCP:3000 -sTCP:LISTEN || echo 'port 3000 is now FREE'",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Frontend",
+			"type": "shell",
+			"command": "npm start",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Backend",
+			"type": "shell",
+			"command": "cd server && npm start",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Backend Debug",
+			"type": "shell",
+			"command": "cd server && node index.js 2>&1 | head -20",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Ports",
+			"type": "shell",
+			"command": "python3 -c \"import socket; s=socket.socket(); r=s.connect_ex(('127.0.0.1',27017)); print('MongoDB port 27017:', 'OPEN' if r==0 else 'CLOSED'); s.close(); r2=s.connect_ex(('127.0.0.1',4000)); print('Backend port 4000:', 'OPEN' if r2==0 else 'CLOSED')\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Backend Error Check",
+			"type": "shell",
+			"command": "cd server && node --input-type=module < index.js 2>&1; echo EXIT:$?",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Backend Import Check",
+			"type": "shell",
+			"command": "cd server && node -e \"import('./index.js').catch(e => { console.error(e); process.exit(1); })\" 2>&1; echo EXIT:$?",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Port 4000",
+			"type": "shell",
+			"command": "python3 -c \"import socket; s=socket.socket(); r=s.connect_ex(('127.0.0.1',4000)); print('Backend port 4000:', 'OPEN' if r==0 else 'CLOSED'); s.close()\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Backend Restart",
+			"type": "shell",
+			"command": "pkill -f 'node.*index.js' 2>/dev/null || true; sleep 1; cd server && npm start",
+			"isBackground": true,
+			"problemMatcher": []
 		}
 	]
 }

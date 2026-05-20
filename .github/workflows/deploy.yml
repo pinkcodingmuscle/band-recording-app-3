@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: gate
     environment:
-      name: production-frontend
+      name: production
       url: ${{ vars.VERCEL_URL }}
     steps:
       - run: echo "Vercel auto-deploy in progress via GitHub App"
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: gate
     environment:
-      name: production-backend
+      name: production
       url: ${{ vars.RAILWAY_URL }}
     steps:
       - run: echo "Railway auto-deploy in progress via GitHub App"
