@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Band Recording App — Data Structures</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2e3245;
+      --text:      #e2e8f0;
+      --muted:     #8892a4;
+      --accent:    #6366f1;
+
+      --user:      #3b82f6;
+      --session:   #22c55e;
+      --track:     #a855f7;
+      --comment:   #f97316;
+      --chat:      #14b8a6;
+      --setlist:   #ec4899;
+      --band:      #eab308;
+      --gridffs:   #64748b;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 1.25rem;
+    }
+    h3 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 0.5rem;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    header span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 2.5rem;
+    }
+
+    /* ── Storage badges ── */
+    .layer-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-mongo  { background: #16a34a22; color: #4ade80; border: 1px solid #166534; }
+    .badge-gridfs { background: #47556933; color: #94a3b8; border: 1px solid #334155; }
+    .badge-local  { background: #ca8a0422; color: #fde047; border: 1px solid #713f12; }
+    .badge-ctx    { background: #6366f122; color: #818cf8; border: 1px solid #312e81; }
+
+    /* ── Section layout ── */
+    section { margin-bottom: 3rem; }
+
+    /* ── Entity cards ── */
+    .cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 260px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .card-header {
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .card-header .model-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      flex: 1;
+    }
+
+    .card-body {
+      padding: 0.75rem 1rem 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    table tr + tr td { border-top: 1px solid var(--border); }
+    td { padding: 4px 0; vertical-align: top; }
+    td:first-child {
+      color: var(--text);
+      font-family: 'Menlo', 'Consolas', monospace;
+      width: 56%;
+      padding-right: 6px;
+    }
+    td:last-child {
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-align: right;
+    }
+    .pk   { color: #fbbf24; }
+    .fk   { color: #60a5fa; }
+    .enum { color: #c084fc; }
+    .def  { color: #94a3b8; font-style: italic; font-size: 0.72rem; }
+
+    /* ── Relationship table ── */
+    .rel-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .rel-table th {
+      text-align: left;
+      padding: 6px 12px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    .rel-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .rel-table tr:last-child td { border-bottom: none; }
+
+    .entity-chip {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 4px;
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .rel-type {
+      font-family: 'Menlo', 'Consolas', monospace;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .rel-desc { color: var(--muted); font-size: 0.82rem; }
+
+    /* ── API routes table ── */
+    .routes-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+    .route-group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      flex: 1;
+      min-width: 240px;
+    }
+    .route-group-header {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 0.85rem;
+      font-family: 'Menlo', 'Consolas', monospace;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .route-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 5px 1rem;
+      border-bottom: 1px solid var(--border)22;
+      font-size: 0.8rem;
+      font-family: 'Menlo', 'Consolas', monospace;
+    }
+    .route-row:last-child { border-bottom: none; }
+    .method {
+      display: inline-block;
+      width: 46px;
+      text-align: center;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+    .GET    { background: #065f4622; color: #34d399; border: 1px solid #064e3b; }
+    .POST   { background: #1e3a8a22; color: #60a5fa; border: 1px solid #1e3a8a; }
+    .PUT    { background: #78350f22; color: #fbbf24; border: 1px solid #78350f; }
+    .DELETE { background: #7f1d1d22; color: #f87171; border: 1px solid #7f1d1d; }
+    .route-path { color: var(--text); }
+    .route-note { color: var(--muted); font-size: 0.7rem; margin-left: auto; }
+
+    /* ── ERD diagram ── */
+    .mermaid-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+    .mermaid svg { max-width: 100%; height: auto; }
+
+    /* ── Storage architecture ── */
+    .arch-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .arch-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      flex: 1;
+      min-width: 200px;
+    }
+    .arch-box h4 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .arch-box ul {
+      list-style: none;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .arch-box ul li::before { content: '→ '; color: var(--accent); }
+
+    /* ── Divider ── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎵 Band Recording App</h1>
+    <span>— Data Structures Overview</span>
+  </header>
+  <p class="subtitle">MongoDB models, frontend context state, REST API endpoints, and storage layers.</p>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 1 — ERD Diagram
+  ═══════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Entity Relationship Diagram</h2>
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+erDiagram
+    User {
+        ObjectId _id PK
+        string email
+        string passwordHash
+        string displayName
+        string avatar
+        datetime createdAt
+    }
+    Session {
+        ObjectId _id PK
+        string name
+        string userId FK
+        datetime createdAt
+    }
+    Track {
+        ObjectId _id PK
+        number clientId
+        string userId FK
+        string name
+        string duration
+        string status
+        number volume
+        boolean muted
+        boolean solo
+        boolean hasAudio
+        string audioFileId
+        datetime createdAt
+    }
+    Comment {
+        ObjectId _id PK
+        string clientId
+        number trackClientId FK
+        number timeMs
+        string type
+        string text
+        string audioPath
+        string authorId FK
+        string authorName
+        datetime createdAt
+    }
+    ChatMessage {
+        ObjectId _id PK
+        string sessionId FK
+        string authorId FK
+        string authorName
+        string text
+        datetime createdAt
+    }
+    SetlistItem {
+        ObjectId _id PK
+        number clientId
+        string userId FK
+        string title
+        string bpm
+        string key
+        number orderIndex
+        mixed recording
+        datetime createdAt
+    }
+
+    User ||--o{ Session : "owns"
+    User ||--o{ Track : "owns"
+    User ||--o{ Comment : "authors"
+    User ||--o{ ChatMessage : "sends"
+    User ||--o{ SetlistItem : "owns"
+    Session ||--o{ ChatMessage : "contains"
+    Track ||--o{ Comment : "has"
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 2 — MongoDB Models
+  ═══════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>MongoDB Models <span class="layer-badge badge-mongo">MongoDB</span></h2>
+    <div class="cards">
+
+      <!-- User -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--user)"></div>
+          <span class="model-name">User</span>
+          <span class="layer-badge badge-mongo">MongoDB</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">_id</td><td>ObjectId</td></tr>
+            <tr><td>email</td><td>String · unique</td></tr>
+            <tr><td>passwordHash</td><td>String</td></tr>
+            <tr><td>displayName</td><td>String</td></tr>
+            <tr><td>avatar</td><td><span class="def">default '🎵'</span></td></tr>
+            <tr><td>createdAt</td><td>Date · auto</td></tr>
+            <tr><td>updatedAt</td><td>Date · auto</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Session -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--session)"></div>
+          <span class="model-name">Session</span>
+          <span class="layer-badge badge-mongo">MongoDB</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">_id</td><td>ObjectId</td></tr>
+            <tr><td>name</td><td>String · required</td></tr>
+            <tr><td class="fk">userId</td><td>String · → User</td></tr>
+            <tr><td>createdAt</td><td>Date · auto</td></tr>
+            <tr><td>updatedAt</td><td>Date · auto</td></tr>
+          </table>
+          <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--muted)">
+            Index: userId + createdAt desc
+          </div>
+        </div>
+      </div>
+
+      <!-- Track -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--track)"></div>
+          <span class="model-name">Track</span>
+          <span class="layer-badge badge-mongo">MongoDB</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">_id</td><td>ObjectId</td></tr>
+            <tr><td>clientId</td><td>Number · Date.now()</td></tr>
+            <tr><td class="fk">userId</td><td>String · → User</td></tr>
+            <tr><td>name</td><td>String</td></tr>
+            <tr><td>duration</td><td>String</td></tr>
+            <tr><td>waveform</td><td>String</td></tr>
+            <tr><td>status</td><td><span class="def">default 'recorded'</span></td></tr>
+            <tr><td>volume</td><td><span class="def">default 75</span></td></tr>
+            <tr><td>muted</td><td>Boolean</td></tr>
+            <tr><td>solo</td><td>Boolean</td></tr>
+            <tr><td>hasAudio</td><td>Boolean</td></tr>
+            <tr><td class="fk">audioFileId</td><td>String · GridFS</td></tr>
+            <tr><td>audioExt</td><td>String</td></tr>
+            <tr><td>createdAt</td><td>Date · auto</td></tr>
+          </table>
+          <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--muted)">
+            Unique index: clientId + userId
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--comment)"></div>
+          <span class="model-name">Comment</span>
+          <span class="layer-badge badge-mongo">MongoDB</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">_id</td><td>ObjectId</td></tr>
+            <tr><td>clientId</td><td>String · 'cmt-xxx'</td></tr>
+            <tr><td class="fk">trackClientId</td><td>Number · → Track</td></tr>
+            <tr><td>timeMs</td><td>Number · ms offset</td></tr>
+            <tr><td>type</td><td><span class="enum">'text' | 'audio'</span></td></tr>
+            <tr><td>text</td><td>String</td></tr>
+            <tr><td>audioPath</td><td>String</td></tr>
+            <tr><td>audioDuration</td><td>Number</td></tr>
+            <tr><td class="fk">authorId</td><td>String · → User</td></tr>
+            <tr><td>authorName</td><td>String · denorm</td></tr>
+            <tr><td>authorAvatar</td><td>String · denorm</td></tr>
+            <tr><td>createdAt</td><td>Date · auto</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- ChatMessage -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--chat)"></div>
+          <span class="model-name">ChatMessage</span>
+          <span class="layer-badge badge-mongo">MongoDB</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">_id</td><td>ObjectId</td></tr>
+            <tr><td class="fk">sessionId</td><td>String · → Session</td></tr>
+            <tr><td class="fk">authorId</td><td>String · → User</td></tr>
+            <tr><td>authorName</td><td>String · denorm</td></tr>
+            <tr><td>authorAvatar</td><td>String · denorm</td></tr>
+            <tr><td>text</td><td>String · required</td></tr>
+            <tr><td>createdAt</td><td>Date · auto</td></tr>
+          </table>
+          <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--muted)">
+            Real-time via Socket.io
+          </div>
+        </div>
+      </div>
+
+      <!-- SetlistItem -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--setlist)"></div>
+          <span class="model-name">SetlistItem</span>
+          <span class="layer-badge badge-mongo">MongoDB</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">_id</td><td>ObjectId</td></tr>
+            <tr><td>clientId</td><td>Number · Date.now()</td></tr>
+            <tr><td class="fk">userId</td><td>String · → User</td></tr>
+            <tr><td>title</td><td>String</td></tr>
+            <tr><td>bpm</td><td>String</td></tr>
+            <tr><td>key</td><td>String</td></tr>
+            <tr><td>orderIndex</td><td>Number</td></tr>
+            <tr><td>recording</td><td>Mixed · audio / YT</td></tr>
+            <tr><td>createdAt</td><td>Date · auto</td></tr>
+          </table>
+          <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--muted)">
+            Unique index: clientId + userId
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 3 — Frontend Context / LocalStorage
+  ═══════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Frontend State <span class="layer-badge badge-local">localStorage</span> <span class="layer-badge badge-ctx">React Context</span></h2>
+    <div class="cards">
+
+      <!-- Band -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--band)"></div>
+          <span class="model-name">Band</span>
+          <span class="layer-badge badge-local">localStorage</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">id</td><td>'band_' + Date.now()</td></tr>
+            <tr><td>name</td><td>String</td></tr>
+            <tr><td>genre</td><td>String</td></tr>
+            <tr><td>description</td><td>String</td></tr>
+            <tr><td class="fk">ownerId</td><td>String · → User.id</td></tr>
+            <tr><td>positions[]</td><td>Position[ ]</td></tr>
+            <tr><td>applications[]</td><td>Application[ ]</td></tr>
+            <tr><td>createdAt</td><td>Number · ms</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Position -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--band)"></div>
+          <span class="model-name">Position</span>
+          <span class="layer-badge badge-ctx">embedded</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">id</td><td>String</td></tr>
+            <tr><td>instrumentId</td><td>String</td></tr>
+            <tr><td>title</td><td>String</td></tr>
+            <tr><td>emoji</td><td>String</td></tr>
+            <tr><td class="fk">filledBy</td><td>String | null</td></tr>
+            <tr><td>filledByName</td><td>String | null</td></tr>
+            <tr><td>filledByAvatar</td><td>String | null</td></tr>
+          </table>
+          <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--muted)">
+            Embedded array inside Band
+          </div>
+        </div>
+      </div>
+
+      <!-- Application -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--band)"></div>
+          <span class="model-name">Application</span>
+          <span class="layer-badge badge-ctx">embedded</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">id</td><td>'app_' + Date.now()</td></tr>
+            <tr><td class="fk">userId</td><td>String · → User.id</td></tr>
+            <tr><td>userName</td><td>String · denorm</td></tr>
+            <tr><td>userAvatar</td><td>String · denorm</td></tr>
+            <tr><td class="fk">positionId</td><td>String · → Position</td></tr>
+            <tr><td>positionTitle</td><td>String · denorm</td></tr>
+            <tr><td>message</td><td>String</td></tr>
+            <tr><td>status</td><td><span class="enum">'pending' | 'accepted' | 'rejected'</span></td></tr>
+            <tr><td>appliedAt</td><td>Number · ms</td></tr>
+          </table>
+          <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--muted)">
+            Embedded array inside Band
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Instruments enum -->
+    <div style="margin-top:1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem 1.25rem;">
+      <h3 style="color:var(--muted);font-size:0.72rem;margin-bottom:0.6rem;">INSTRUMENTS ENUM (BandContext)</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎤 vocals_lead</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎤 vocals_back</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎸 guitar_lead</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎸 guitar_rhythm</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎵 bass</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🥁 drums</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎹 keys</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎷 sax</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎺 trumpet</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎻 violin</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎧 producer</span>
+        <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">🎼 other</span>
+      </div>
+      <div style="margin-top:0.75rem;">
+        <h3 style="color:var(--muted);font-size:0.72rem;margin-bottom:0.4rem;">GENRES ENUM</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Rock</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Jazz</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Pop</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Blues</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Country</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Metal</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">R&B</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">EDM</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Classical</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Hip-Hop</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Folk</span>
+          <span style="background:#1e293b;padding:2px 8px;border-radius:4px;font-size:0.78rem;font-family:monospace">Punk</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 4 — Relationships
+  ═══════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Relationships</h2>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+      <table class="rel-table">
+        <thead>
+          <tr>
+            <th>From</th>
+            <th>Type</th>
+            <th>To</th>
+            <th>Via</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="entity-chip" style="background:#3b82f622;color:#60a5fa">User</span></td>
+            <td><span class="rel-type">1 → many</span></td>
+            <td><span class="entity-chip" style="background:#22c55e22;color:#86efac">Session</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">Session.userId</td>
+            <td class="rel-desc">User owns recording sessions</td>
+          </tr>
+          <tr>
+            <td><span class="entity-chip" style="background:#3b82f622;color:#60a5fa">User</span></td>
+            <td><span class="rel-type">1 → many</span></td>
+            <td><span class="entity-chip" style="background:#a855f722;color:#d8b4fe">Track</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">Track.userId</td>
+            <td class="rel-desc">User owns tracks</td>
+          </tr>
+          <tr>
+            <td><span class="entity-chip" style="background:#a855f722;color:#d8b4fe">Track</span></td>
+            <td><span class="rel-type">1 → many</span></td>
+            <td><span class="entity-chip" style="background:#f9731622;color:#fdba74">Comment</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">Comment.trackClientId</td>
+            <td class="rel-desc">Track has timestamped comments</td>
+          </tr>
+          <tr>
+            <td><span class="entity-chip" style="background:#3b82f622;color:#60a5fa">User</span></td>
+            <td><span class="rel-type">1 → many</span></td>
+            <td><span class="entity-chip" style="background:#f9731622;color:#fdba74">Comment</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">Comment.authorId</td>
+            <td class="rel-desc">Author denormalized for perf</td>
+          </tr>
+          <tr>
+            <td><span class="entity-chip" style="background:#22c55e22;color:#86efac">Session</span></td>
+            <td><span class="rel-type">1 → many</span></td>
+            <td><span class="entity-chip" style="background:#14b8a622;color:#5eead4">ChatMessage</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">ChatMessage.sessionId</td>
+            <td class="rel-desc">Session has live chat history</td>
+          </tr>
+          <tr>
+            <td><span class="entity-chip" style="background:#3b82f622;color:#60a5fa">User</span></td>
+            <td><span class="rel-type">1 → many</span></td>
+            <td><span class="entity-chip" style="background:#ec489922;color:#f9a8d4">SetlistItem</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">SetlistItem.userId</td>
+            <td class="rel-desc">User manages setlist</td>
+          </tr>
+          <tr>
+            <td><span class="entity-chip" style="background:#eab30822;color:#fde047">Band</span></td>
+            <td><span class="rel-type">1 → many</span></td>
+            <td><span class="entity-chip" style="background:#eab30822;color:#fde047">Position</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">Band.positions[ ]</td>
+            <td class="rel-desc">Embedded array (localStorage)</td>
+          </tr>
+          <tr>
+            <td><span class="entity-chip" style="background:#eab30822;color:#fde047">Band</span></td>
+            <td><span class="rel-type">1 → many</span></td>
+            <td><span class="entity-chip" style="background:#eab30822;color:#fde047">Application</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">Band.applications[ ]</td>
+            <td class="rel-desc">Embedded array (localStorage)</td>
+          </tr>
+          <tr>
+            <td><span class="entity-chip" style="background:#a855f722;color:#d8b4fe">Track</span></td>
+            <td><span class="rel-type">1 → 0..1</span></td>
+            <td><span class="entity-chip" style="background:#64748b33;color:#94a3b8">GridFS File</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">Track.audioFileId</td>
+            <td class="rel-desc">Binary audio blob in GridFS</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 5 — REST API Endpoints
+  ═══════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>REST API Endpoints</h2>
+    <div class="routes-grid">
+
+      <div class="route-group">
+        <div class="route-group-header" style="color:var(--user)">
+          <span>🔐</span> /api/auth
+        </div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/signup</span><span class="route-note">register</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/login</span><span class="route-note">JWT</span></div>
+        <div class="route-row"><span class="method GET">GET</span><span class="route-path">/me</span><span class="route-note">current user</span></div>
+      </div>
+
+      <div class="route-group">
+        <div class="route-group-header" style="color:var(--session)">
+          <span>📁</span> /api/sessions
+        </div>
+        <div class="route-row"><span class="method GET">GET</span><span class="route-path">/</span><span class="route-note">list</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/</span><span class="route-note">create</span></div>
+      </div>
+
+      <div class="route-group">
+        <div class="route-group-header" style="color:var(--track)">
+          <span>🎚</span> /api/tracks
+        </div>
+        <div class="route-row"><span class="method GET">GET</span><span class="route-path">/</span><span class="route-note">list</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/upsert</span><span class="route-note">batch upsert</span></div>
+        <div class="route-row"><span class="method DELETE">DEL</span><span class="route-path">/:id</span><span class="route-note">delete</span></div>
+      </div>
+
+      <div class="route-group">
+        <div class="route-group-header" style="color:var(--gridffs)">
+          <span>🎵</span> /api/audio
+        </div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/upload/:trackId</span><span class="route-note">GridFS upload</span></div>
+        <div class="route-row"><span class="method GET">GET</span><span class="route-path">/:fileId</span><span class="route-note">stream</span></div>
+        <div class="route-row"><span class="method DELETE">DEL</span><span class="route-path">/</span><span class="route-note">by storagePath</span></div>
+      </div>
+
+      <div class="route-group">
+        <div class="route-group-header" style="color:var(--comment)">
+          <span>💬</span> /api/comments
+        </div>
+        <div class="route-row"><span class="method GET">GET</span><span class="route-path">/</span><span class="route-note">list</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/</span><span class="route-note">add</span></div>
+        <div class="route-row"><span class="method DELETE">DEL</span><span class="route-path">/:id</span><span class="route-note">delete</span></div>
+      </div>
+
+      <div class="route-group">
+        <div class="route-group-header" style="color:var(--chat)">
+          <span>📡</span> /api/chat
+        </div>
+        <div class="route-row"><span class="method GET">GET</span><span class="route-path">/:sessionId</span><span class="route-note">history</span></div>
+        <div class="route-row" style="color:var(--muted);font-size:0.78rem;padding:5px 1rem">Socket.io: chat:message</div>
+      </div>
+
+      <div class="route-group">
+        <div class="route-group-header" style="color:var(--setlist)">
+          <span>🎼</span> /api/setlist
+        </div>
+        <div class="route-row"><span class="method GET">GET</span><span class="route-path">/</span><span class="route-note">list</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/</span><span class="route-note">upsert</span></div>
+        <div class="route-row"><span class="method PUT">PUT</span><span class="route-path">/:id</span><span class="route-note">update</span></div>
+        <div class="route-row"><span class="method PUT">PUT</span><span class="route-path">/reorder</span><span class="route-note">reorder</span></div>
+        <div class="route-row"><span class="method DELETE">DEL</span><span class="route-path">/:id</span><span class="route-note">delete</span></div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 6 — Storage Architecture
+  ═══════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Storage Architecture</h2>
+    <div class="arch-row">
+
+      <div class="arch-box" style="border-color:#16a34a55">
+        <h4 style="color:#4ade80">MongoDB Atlas</h4>
+        <ul>
+          <li>Users, Sessions, Tracks</li>
+          <li>Comments, ChatMessages</li>
+          <li>SetlistItems</li>
+          <li>JWT auth (bcrypt hashed passwords)</li>
+        </ul>
+      </div>
+
+      <div class="arch-box" style="border-color:#47556955">
+        <h4 style="color:#94a3b8">GridFS (MongoDB)</h4>
+        <ul>
+          <li>Audio blob storage</li>
+          <li>Linked via Track.audioFileId</li>
+          <li>Served via /api/audio/:fileId</li>
+          <li>Supports .webm / .mp4</li>
+        </ul>
+      </div>
+
+      <div class="arch-box" style="border-color:#ca8a0455">
+        <h4 style="color:#fde047">localStorage (Browser)</h4>
+        <ul>
+          <li>JWT token (key: 'jwt')</li>
+          <li>Band data (key: 'bands')</li>
+          <li>Fallback tracks &amp; comments when API not configured</li>
+        </ul>
+      </div>
+
+      <div class="arch-box" style="border-color:#6366f155">
+        <h4 style="color:#818cf8">Supabase (planned)</h4>
+        <ul>
+          <li>001_initial_schema.sql defines tables</li>
+          <li>Mirrors MongoDB schema</li>
+          <li>RLS policies per-user</li>
+          <li>Realtime on comments &amp; chat</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.78rem;">
+    Generated from server/models/, src/context/, src/lib/api.js · Band Recording App
+  </footer>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        primaryColor: '#1a1d27',
+        primaryTextColor: '#e2e8f0',
+        primaryBorderColor: '#2e3245',
+        lineColor: '#6366f1',
+        secondaryColor: '#0f1117',
+        tertiaryColor: '#1a1d27',
+      },
+      er: {
+        diagramPadding: 24,
+        layoutDirection: 'TB',
+        minEntityWidth: 100,
+        minEntityHeight: 75,
+        entityPadding: 15,
+      },
+    });
+  </script>
+</body>
+</html>

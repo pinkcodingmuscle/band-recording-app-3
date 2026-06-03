@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useBand } from '../context/BandContext';
 import './Dashboard.css';
 
-function Dashboard({ currentUser, users }) {
+function Dashboard({ currentUser, users, onNavigate }) {
   const { userBand } = useBand();
   const [now, setNow] = useState(new Date());
 
@@ -44,7 +44,7 @@ function Dashboard({ currentUser, users }) {
         <div className="dash-card gigs-card">
           <div className="dash-card-header">
             <h2 className="dash-card-title">Upcoming Gigs</h2>
-            <button className="dash-add-btn" title="Add gig">+</button>
+            <button className="dash-add-btn" title="Manage in Calendar" onClick={() => onNavigate?.('calendar')}>📅</button>
           </div>
           <table className="gigs-table">
             <tbody>

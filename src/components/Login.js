@@ -16,6 +16,7 @@ function Login({ onLogin }) {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isSignup, setIsSignup] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState(randomAvatar);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -40,15 +41,17 @@ function Login({ onLogin }) {
       setLoading(true);
       try {
         if (isSignup) {
-          const avatar = randomAvatar();
-          const user = await apiSignup(email.trim(), password, displayName.trim(), avatar);
+          const user = await apiSignup(email.trim(), password, displayName.trim(), selectedAvatar);
           onLogin(buildUser(user.id, user.username, user.avatar));
         } else {
           const user = await apiLogin(email.trim(), password);
           onLogin(buildUser(user.id, user.username, user.avatar));
         }
       } catch (err) {
-        setError(err.message || 'Something went wrong. Please try again.');
+        const isNetworkError = err instanceof TypeError && err.message === 'Failed to fetch';
+        setError(isNetworkError
+          ? 'Unable to reach the server. Please check your connection or try again shortly.'
+          : err.message || 'Something went wrong. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -73,18 +76,36 @@ function Login({ onLogin }) {
 
         <form className="login-form" onSubmit={handleSubmit}>
           {isSignup && (
-            <div className="form-group">
-              <label htmlFor="displayName">Display Name</label>
-              <input
-                id="displayName"
-                type="text"
-                value={displayName}
-                onChange={(e) => { setDisplayName(e.target.value); setError(''); }}
-                placeholder="Your name in the band"
-                className="login-input"
-                autoComplete="nickname"
-              />
-            </div>
+            <>
+              <div className="form-group">
+                <label htmlFor="displayName">Display Name</label>
+                <input
+                  id="displayName"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => { setDisplayName(e.target.value); setError(''); }}
+                  placeholder="Your name in the band"
+                  className="login-input"
+                  autoComplete="nickname"
+                />
+              </div>
+              <div className="form-group">
+                <label>Choose Your Avatar</label>
+                <div className="avatar-picker">
+                  {AVATARS.map(av => (
+                    <button
+                      key={av}
+                      type="button"
+                      className={`avatar-option${selectedAvatar === av ? ' selected' : ''}`}
+                      onClick={() => setSelectedAvatar(av)}
+                      aria-label={`Select avatar ${av}`}
+                    >
+                      {av}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           <div className="form-group">
@@ -118,6 +139,10 @@ function Login({ onLogin }) {
           <button type="submit" className="login-button" disabled={loading}>
             {loading ? 'Please wait…' : isSignup ? 'Sign Up' : 'Log In'}
           </button>
+
+          {!isSignup && isApiConfigured && (
+            <p className="stay-signed-in-note">You'll stay signed in for 7 days.</p>
+          )}
 
           <div className="login-divider">
             <span>or</span>

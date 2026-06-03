@@ -12,7 +12,7 @@ import BandRoster from './components/BandRoster';
 import BandApplications from './components/BandApplications';
 import { CommentsProvider } from './context/CommentsContext';
 import { BandProvider, useBand } from './context/BandContext';
-import { isApiConfigured, apiMe, apiLogout } from './lib/api';
+import { isApiConfigured, apiMe, apiLogout, apiGetSessions, apiCreateSession } from './lib/api';
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
 // Rendered inside BandProvider so it can call useBand().
@@ -21,7 +21,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
 
   const [activeSession, setActiveSession] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(() => window.innerWidth > 768);
   const [sessions, setSessions] = useState([]);
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -43,40 +43,54 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
 
   useEffect(() => {
     if (!currentUser) return;
-    const baseDate = new Date();
-    setSessions([
-      {
-        id: 1,
-        name: `${currentUser.username}'s Recording Session`,
-        date: baseDate.toISOString().split('T')[0],
-        tracks: 3,
-        status: 'active',
-        collaborators: bandMembers.length,
-        duration: '2:34',
-        sessionId: currentUser.sessionId,
-      },
-      {
-        id: 2,
-        name: 'Collaborative Jam',
-        date: new Date(baseDate - 86400000 * 2).toISOString().split('T')[0],
-        tracks: 5,
-        status: 'active',
-        collaborators: 3,
-        duration: '4:12',
-        sessionId: 'sess' + Math.floor(10000 + Math.random() * 90000),
-      },
-      {
-        id: 3,
-        name: 'Practice & Rehearsal',
-        date: new Date(baseDate - 86400000 * 5).toISOString().split('T')[0],
-        tracks: 2,
-        status: 'completed',
-        collaborators: 2,
-        duration: '3:05',
-        sessionId: 'sess' + Math.floor(10000 + Math.random() * 90000),
-      },
-    ]);
+    if (isApiConfigured) {
+      apiGetSessions().then(data => {
+        if (data && data.length > 0) {
+          setSessions(data);
+          setActiveSession(prev => prev ?? data[0]);
+        }
+      });
+    } else {
+      // Local fallback
+      const baseDate = new Date();
+      const fallback = [
+        {
+          id: 1,
+          name: `${currentUser.username}'s Recording Session`,
+          date: baseDate.toISOString().split('T')[0],
+          tracks: 3, status: 'active', collaborators: 1, duration: '0:00',
+          sessionId: currentUser.sessionId,
+        },
+      ];
+      setSessions(fallback);
+      setActiveSession(fallback[0]);
+    }
   }, [currentUser?.id]);
+
+  const handleCreateSession = async () => {
+    const name = window.prompt('Project name:');
+    if (!name?.trim()) return;
+    if (isApiConfigured) {
+      try {
+        const session = await apiCreateSession(name.trim());
+        setSessions(prev => [session, ...prev]);
+        setActiveSession(session);
+        setActiveTab('recording');
+      } catch (err) {
+        alert(err.message);
+      }
+    } else {
+      const session = {
+        id: Date.now(), name: name.trim(),
+        date: new Date().toISOString().split('T')[0],
+        tracks: 0, status: 'active', collaborators: 1, duration: '0:00',
+        sessionId: 'sess' + Date.now(),
+      };
+      setSessions(prev => [session, ...prev]);
+      setActiveSession(session);
+      setActiveTab('recording');
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -228,6 +242,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
                   sessions={sessions}
                   activeSession={activeSession}
                   onSelectSession={setActiveSession}
+                  onNewSession={handleCreateSession}
                 />
               )}
               {activeTab === 'community' && userBand && (
@@ -238,6 +253,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
                   sessions={sessions}
                   activeSession={activeSession}
                   onSelectSession={setActiveSession}
+                  onNewSession={handleCreateSession}
                 />
               )}
             </aside>
@@ -246,7 +262,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
           {/* Main Content Area */}
           <main className="main-content">
             {activeTab === 'dashboard' && (
-              <Dashboard currentUser={currentUser} users={bandMembers} />
+              <Dashboard currentUser={currentUser} users={bandMembers} onNavigate={setActiveTab} />
             )}
             {activeTab === 'calendar' && <BandCalendar />}
             {activeTab === 'setlist' && <Setlist currentUser={currentUser} />}
@@ -268,6 +284,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
                   sessions={sessions}
                   activeSession={activeSession}
                   onSelectSession={setActiveSession}
+                  onNewSession={handleCreateSession}
                   viewMode="grid"
                 />
               </div>

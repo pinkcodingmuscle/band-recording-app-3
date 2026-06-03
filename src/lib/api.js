@@ -77,6 +77,24 @@ export async function apiMe() {
   return data.user;
 }
 
+// ── Sessions ──────────────────────────────────────────────────────────────────
+export async function apiGetSessions() {
+  const res = await fetch(`${BASE}/api/sessions`, { headers: authHeaders() });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function apiCreateSession(name) {
+  const res = await fetch(`${BASE}/api/sessions`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ name }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to create session');
+  return data;
+}
+
 // ── Tracks ────────────────────────────────────────────────────────────────────
 export async function apiGetTracks() {
   const res = await fetch(`${BASE}/api/tracks`, { headers: authHeaders() });

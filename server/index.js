@@ -10,6 +10,7 @@ import audioRouter from './routes/audio.js';
 import commentsRouter from './routes/comments.js';
 import chatRouter from './routes/chat.js';
 import setlistRouter from './routes/setlist.js';
+import sessionsRouter from './routes/sessions.js';
 import initSocket from './socket/index.js';
 
 await connectDB();
@@ -34,6 +35,7 @@ app.use('/api/audio', audioRouter);
 app.use('/api/comments', commentsRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/setlist', setlistRouter);
+app.use('/api/sessions', sessionsRouter);
 
 initSocket(io);
 
