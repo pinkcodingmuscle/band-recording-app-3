@@ -12,7 +12,6 @@ import BandRoster from './components/BandRoster';
 import BandApplications from './components/BandApplications';
 import { CommentsProvider } from './context/CommentsContext';
 import { BandProvider, useBand } from './context/BandContext';
-import { ToastProvider } from './context/ToastContext';
 import { isApiConfigured, apiMe, apiLogout, apiGetSessions, apiCreateSession, apiJoinSession } from './lib/api';
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
@@ -167,7 +166,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
         {/* Top Navigation Bar */}
         <nav className="top-nav">
           <div className="nav-left">
-            <button className="menu-toggle" onClick={() => setShowSidebar(!showSidebar)} aria-label="Toggle sidebar">
+            <button className="menu-toggle" onClick={() => setShowSidebar(!showSidebar)}>
               ☰
             </button>
             <h1 className="app-logo">🎵 BandLab Studio</h1>
@@ -230,22 +229,21 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
               className="nav-btn"
               onClick={toggleTheme}
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
-            <button className="nav-btn notification-bell" title="Notifications" aria-label="Notifications">
+            <button className="nav-btn notification-bell" title="Notifications">
               🔔
               {pendingApplicationCount > 0 && (
-                <span className="notification-badge" aria-label={`${pendingApplicationCount} pending`}>{pendingApplicationCount}</span>
+                <span className="notification-badge">{pendingApplicationCount}</span>
               )}
             </button>
-            <button className="nav-btn" title="Settings" aria-label="Settings">⚙️</button>
+            <button className="nav-btn">⚙️</button>
             <div className="user-profile">
               <span className="user-name">{currentUser.username}</span>
               <span className="user-session-id">{currentUser.sessionId}</span>
             </div>
-            <button className="logout-btn" onClick={onLogout} title="Logout" aria-label="Logout">
+            <button className="logout-btn" onClick={onLogout} title="Logout">
               🚪
             </button>
           </div>
@@ -389,16 +387,14 @@ function App() {
   }
 
   return (
-    <ToastProvider>
-      <BandProvider currentUser={currentUser}>
-        <AppShell
-          currentUser={currentUser}
-          theme={theme}
-          toggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
-          onLogout={handleLogout}
-        />
-      </BandProvider>
-    </ToastProvider>
+    <BandProvider currentUser={currentUser}>
+      <AppShell
+        currentUser={currentUser}
+        theme={theme}
+        toggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
+        onLogout={handleLogout}
+      />
+    </BandProvider>
   );
 }
 
