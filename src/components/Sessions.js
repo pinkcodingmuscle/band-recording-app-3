@@ -1,13 +1,18 @@
 import React from 'react';
 import './Sessions.css';
 
-function Sessions({ sessions, activeSession, onSelectSession, onNewSession, viewMode = 'list' }) {
+function Sessions({ sessions, activeSession, onSelectSession, onNewSession, onJoinSession, viewMode = 'list' }) {
   if (viewMode === 'grid') {
     return (
       <div className="projects-grid-container">
         <div className="projects-header">
           <h2>📁 Your Projects</h2>
-          <button className="new-project-btn" onClick={onNewSession}>+ New Project</button>
+          <div className="projects-header-actions">
+            {onJoinSession && (
+              <button className="join-session-btn" onClick={onJoinSession}>↩ Join Session</button>
+            )}
+            <button className="new-project-btn" onClick={onNewSession}>+ New Project</button>
+          </div>
         </div>
         <div className="projects-grid">
           {sessions.map(session => (
@@ -44,7 +49,12 @@ function Sessions({ sessions, activeSession, onSelectSession, onNewSession, view
     <div className="sessions-container">
       <div className="sessions-header">
         <h2 className="section-title">📁 Projects</h2>
-        <button className="new-session-btn" title="New Project" onClick={onNewSession}>+</button>
+        <div className="sessions-header-actions">
+          {onJoinSession && (
+            <button className="join-session-btn" title="Join Session" onClick={onJoinSession}>↩</button>
+          )}
+          <button className="new-session-btn" title="New Project" onClick={onNewSession}>+</button>
+        </div>
       </div>
       <div className="sessions-list">
         {sessions.map(session => (

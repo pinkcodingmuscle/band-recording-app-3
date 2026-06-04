@@ -95,18 +95,31 @@ export async function apiCreateSession(name) {
   return data;
 }
 
+export async function apiJoinSession(sessionId) {
+  const res = await fetch(`${BASE}/api/sessions/${sessionId}/join`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to join session');
+  return data;
+}
+
 // ── Tracks ────────────────────────────────────────────────────────────────────
-export async function apiGetTracks() {
-  const res = await fetch(`${BASE}/api/tracks`, { headers: authHeaders() });
+export async function apiGetTracks(sessionId) {
+  const url = sessionId
+    ? `${BASE}/api/tracks?sessionId=${encodeURIComponent(sessionId)}`
+    : `${BASE}/api/tracks`;
+  const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) return null;
   return res.json();
 }
 
-export async function apiUpsertTracks(tracks) {
+export async function apiUpsertTracks(tracks, sessionId) {
   const res = await fetch(`${BASE}/api/tracks/upsert`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ tracks }),
+    body: JSON.stringify({ tracks, sessionId: sessionId || null }),
   });
   if (!res.ok) return;
   return res.json();

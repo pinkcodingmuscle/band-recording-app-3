@@ -8,6 +8,7 @@ const TrackSchema = new mongoose.Schema(
   {
     clientId: { type: Number, required: true },
     userId: { type: String, required: true },
+    sessionId: { type: String, default: null },
     name: { type: String, default: '' },
     duration: { type: String, default: null },
     waveform: { type: String, default: null },
@@ -23,5 +24,6 @@ const TrackSchema = new mongoose.Schema(
 );
 
 TrackSchema.index({ clientId: 1, userId: 1 }, { unique: true });
+TrackSchema.index({ sessionId: 1 });
 
 export default mongoose.model('Track', TrackSchema);

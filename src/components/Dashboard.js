@@ -17,17 +17,6 @@ function Dashboard({ currentUser, users, onNavigate }) {
     { id: 3, date: 'Jun 5, 2026',  time: '9:00 PM', venue: 'Downtown Club' },
   ];
 
-  const nextRehearsal = new Date(now);
-  nextRehearsal.setHours(17, 0, 0, 0);
-  if (nextRehearsal <= now) nextRehearsal.setDate(nextRehearsal.getDate() + 1);
-  const diffMs = nextRehearsal - now;
-  const diffH  = Math.floor(diffMs / 3600000);
-  const diffM  = Math.floor((diffMs % 3600000) / 60000);
-
-  const rehearsalLabel = nextRehearsal.toLocaleDateString('en-US', {
-    month: 'long', day: 'numeric', year: 'numeric'
-  }) + ' · 5:00 PM';
-
   const notifications = [
     { id: 1, icon: '📍', text: 'New gig added', source: 'stictar', time: '2m ago' },
     { id: 2, icon: '🎵', text: 'Track upload ready', source: 'studio', time: '18m ago' },
@@ -59,18 +48,12 @@ function Dashboard({ currentUser, users, onNavigate }) {
           </table>
         </div>
 
-        {/* Rehearsal Schedule */}
+        {/* Recent Activity */}
         <div className="dash-card rehearsal-card">
           <div className="dash-card-header">
-            <h2 className="dash-card-title">Rehearsal Schedule</h2>
-            <div className="notifications-label">Notifications</div>
+            <h2 className="dash-card-title">Recent Activity</h2>
           </div>
           <div className="rehearsal-body">
-            <div className="rehearsal-countdown-group">
-              <p className="rehearsal-next-label">Next rehearsal in</p>
-              <p className="rehearsal-countdown">{diffH} h {diffM}m</p>
-              <p className="rehearsal-date">{rehearsalLabel}</p>
-            </div>
             <div className="notification-pills">
               {notifications.map(n => (
                 <div key={n.id} className="notif-pill">
@@ -125,14 +108,32 @@ function Dashboard({ currentUser, users, onNavigate }) {
           </div>
         </div>
 
-        {/* Quick Stats */}
+        {/* Quick Actions */}
         <div className="dash-card stats-card">
           <div className="dash-card-header">
-            <h2 className="dash-card-title">Session Stats</h2>
+            <h2 className="dash-card-title">Quick Actions</h2>
           </div>
-          <div className="stats-grid">
+          <div className="quick-actions-grid">
+            <button className="quick-action-btn" onClick={() => onNavigate?.('studio')}>
+              <span className="qa-icon">🎙️</span>
+              <span className="qa-label">Start Recording</span>
+            </button>
+            <button className="quick-action-btn" onClick={() => onNavigate?.('setlist')}>
+              <span className="qa-icon">🎵</span>
+              <span className="qa-label">Edit Setlist</span>
+            </button>
+            <button className="quick-action-btn" onClick={() => onNavigate?.('chat')}>
+              <span className="qa-icon">💬</span>
+              <span className="qa-label">Open Chat</span>
+            </button>
+            <button className="quick-action-btn" onClick={() => onNavigate?.('calendar')}>
+              <span className="qa-icon">📅</span>
+              <span className="qa-label">Calendar</span>
+            </button>
+          </div>
+          <div className="stats-grid" style={{ marginTop: '1rem' }}>
             <div className="stat-item">
-              <span className="stat-value">3</span>
+              <span className="stat-value">{gigs.length}</span>
               <span className="stat-label">Upcoming Gigs</span>
             </div>
             <div className="stat-item">
@@ -142,10 +143,6 @@ function Dashboard({ currentUser, users, onNavigate }) {
                   : (users || []).length}
               </span>
               <span className="stat-label">Band Members</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-value">8</span>
-              <span className="stat-label">Setlist Songs</span>
             </div>
             <div className="stat-item">
               <span className="stat-value">{onlineMembers.length}</span>

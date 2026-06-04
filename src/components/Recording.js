@@ -3,7 +3,9 @@ import './Recording.css';
 import './RecordingComments.css';
 import CommentRail from './CommentRail';
 import AddCommentModal from './AddCommentModal';
+import WaveformCanvas from './WaveformCanvas';
 import { useComments } from '../context/CommentsContext';
+import { useToast } from '../context/ToastContext';
 import { saveAudioBlob, loadAudioBlob, deleteAudioBlob } from '../db/audioDB';
 import { isApiConfigured, apiGetTracks, apiUpsertTracks, apiDeleteTrack } from '../lib/api';
 
@@ -29,6 +31,7 @@ function loadSavedTracks() {
 }
 
 function Recording({ activeSession, currentUser }) {
+  const { showToast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [playheadPosition, setPlayheadPosition] = useState(0);
@@ -41,7 +44,9 @@ function Recording({ activeSession, currentUser }) {
   const [tracks, setTracks] = useState([]);
   const [tracksLoading, setTracksLoading] = useState(true);
   const intervalRef = useRef(null);
-  const playIntervalRef = useRef(null);
+  const rafRef = useRef(null);
+  const playStartTimeRef = useRef(null); // wall-clock ms when play started
+  const playStartPositionRef = useRef(0); // playhead % when play started
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const micStreamRef = useRef(null);
@@ -66,41 +71,65 @@ function Recording({ activeSession, currentUser }) {
     return () => clearInterval(intervalRef.current);
   }, [isRecording]);
 
+  // ── rAF-based playhead: drives position from real audio currentTime or wall clock ──
   useEffect(() => {
-    if (isPlaying) {
-      playIntervalRef.current = setInterval(() => {
-        setPlayheadPosition(prev => {
-          if (prev >= 100) {
-            setIsPlaying(false);
-            return 0;
-          }
-          return prev + 0.5;
-        });
-      }, 100);
-    } else {
-      if (playIntervalRef.current) {
-        clearInterval(playIntervalRef.current);
+    if (!isPlaying) {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
       }
+      return;
     }
+
+    const TOTAL_SECONDS = 240; // 4:00 total timeline duration
+
+    const tick = () => {
+      // Prefer syncing to the first active audio node's currentTime
+      const node = Object.values(audioNodesRef.current).find(
+        (a) => !a.paused && a.duration > 0
+      );
+      let pct;
+      if (node) {
+        pct = (node.currentTime / TOTAL_SECONDS) * 100;
+      } else {
+        // Wall-clock fallback (no real audio yet / timer-only mode)
+        const elapsed = (performance.now() - playStartTimeRef.current) / 1000;
+        pct = playStartPositionRef.current + (elapsed / TOTAL_SECONDS) * 100;
+      }
+
+      if (pct >= 100) {
+        setPlayheadPosition(100);
+        setIsPlaying(false);
+        return;
+      }
+
+      setPlayheadPosition(pct);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
     return () => {
-      if (playIntervalRef.current) {
-        clearInterval(playIntervalRef.current);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
       }
     };
-  }, [isPlaying]);
+  }, [isPlaying]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── On mount: load track metadata from API or localStorage ──
+  // ── On mount / session change: load track metadata from API or localStorage ──
   useEffect(() => {
     let cancelled = false;
+    const sessionId = activeSession?.id || null;
     async function loadTracks() {
       if (isApiConfigured && currentUser?.id) {
-        const data = await apiGetTracks();
+        setTracksLoading(true);
+        const data = await apiGetTracks(sessionId);
         if (!cancelled) {
           if (data && data.length > 0) {
             setTracks(data.map(trackFromApi));
           } else {
-            // First visit: seed API with default tracks
-            await apiUpsertTracks(SEED_TRACKS);
+            // First visit in this session: seed with default tracks
+            await apiUpsertTracks(SEED_TRACKS, sessionId);
             if (!cancelled) setTracks(SEED_TRACKS);
           }
           setTracksLoading(false);
@@ -114,13 +143,13 @@ function Recording({ activeSession, currentUser }) {
     }
     loadTracks();
     return () => { cancelled = true; };
-  }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Persist track metadata whenever tracks change ──
   useEffect(() => {
     if (tracksLoading) return;
     if (isApiConfigured && currentUser?.id) {
-      apiUpsertTracks(tracks); // fire-and-forget
+      apiUpsertTracks(tracks, activeSession?.id || null); // fire-and-forget
     } else {
       const toSave = tracks.map(({ audioUrl, ...rest }) => rest);
       localStorage.setItem(TRACKS_KEY, JSON.stringify(toSave));
@@ -186,6 +215,50 @@ function Recording({ activeSession, currentUser }) {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // ── Keyboard shortcuts (Space = play/pause, R = record, Escape = stop) ──
+  // Use refs so the handlers always see fresh state without recreating the effect.
+  const isPlayingRef = useRef(isPlaying);
+  const isRecordingRef = useRef(isRecording);
+  const trackNameModalOpenRef = useRef(trackNameModal.open);
+  isPlayingRef.current = isPlaying;
+  isRecordingRef.current = isRecording;
+  trackNameModalOpenRef.current = trackNameModal.open;
+
+  const handlePlayRef = useRef(null);
+  const handleStopRef = useRef(null);
+  const handleStartRecordingRef = useRef(null);
+  const handleStopRecordingRef = useRef(null);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      // Ignore when typing in an input / textarea / the track name modal
+      if (
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
+        e.target.isContentEditable ||
+        trackNameModalOpenRef.current
+      ) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handlePlayRef.current?.();
+      } else if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (isRecordingRef.current) {
+          handleStopRecordingRef.current?.();
+        } else {
+          handleStartRecordingRef.current?.();
+        }
+      } else if (e.key === 'Escape') {
+        if (isPlayingRef.current) {
+          handleStopRef.current?.();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []); // intentionally empty — always reads from refs
 
   // ── Audio helpers ──
   const stopAllAudio = useCallback(() => {
@@ -264,6 +337,7 @@ function Recording({ activeSession, currentUser }) {
             hasAudio: true,
           },
         ]);
+        showToast(`Track "${n}" saved`, 'success');
         setRecordingTime(0);
       };
       recorder.start(100);
@@ -319,6 +393,8 @@ function Recording({ activeSession, currentUser }) {
       pauseAllAudio();
       setIsPlaying(false);
     } else {
+      playStartTimeRef.current = performance.now();
+      playStartPositionRef.current = playheadPosition;
       playAudioForTracks(tracks);
       setIsPlaying(true);
     }
@@ -382,6 +458,12 @@ function Recording({ activeSession, currentUser }) {
     setCommentModal({ trackId, timeMs });
   };
 
+  // Keep shortcut handler refs up to date on every render
+  handlePlayRef.current = handlePlay;
+  handleStopRef.current = handleStop;
+  handleStartRecordingRef.current = handleStartRecording;
+  handleStopRecordingRef.current = handleStopRecording;
+
   return (
     <div className="recording-container">
       {/* Transport Controls Bar */}
@@ -435,9 +517,14 @@ function Recording({ activeSession, currentUser }) {
             <input type="number" defaultValue="120" min="40" max="200" />
           </div>
           <div className="zoom-control">
-            <button onClick={() => setZoom(Math.max(25, zoom - 25))}>−</button>
+            <button onClick={() => setZoom(Math.max(25, zoom - 25))} aria-label="Zoom out">−</button>
             <span>{zoom}%</span>
-            <button onClick={() => setZoom(Math.min(200, zoom + 25))}>+</button>
+            <button onClick={() => setZoom(Math.min(200, zoom + 25))} aria-label="Zoom in">+</button>
+          </div>
+          <div className="keyboard-hints" aria-label="Keyboard shortcuts">
+            <span title="Space = play/pause">Space</span>
+            <span title="R = record / stop recording">R</span>
+            <span title="Esc = stop">Esc</span>
           </div>
         </div>
       </div>
@@ -562,7 +649,11 @@ function Recording({ activeSession, currentUser }) {
                   onAddComment={(tid, tms) => openCommentModal(tid, tms)}
                 />
                 <div className="track-region">
-                  <div className="waveform-display">{track.waveform}</div>
+                  <WaveformCanvas
+                    audioUrl={track.audioUrl}
+                    fallback={track.waveform}
+                    className="track-waveform"
+                  />
                   <span className="region-label">{track.name}</span>
                 </div>
               </div>

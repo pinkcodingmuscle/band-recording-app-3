@@ -185,6 +185,20 @@
   flex-shrink: 0;
 }
 
+/* Grouped messages: tighten spacing and hide the placeholder avatar slot */
+.message.grouped {
+  margin-top: 2px;
+}
+
+.message.grouped .message-avatar {
+  background: transparent;
+  visibility: hidden;
+}
+
+.message.grouped .message-content {
+  border-top-left-radius: 12px;
+}
+
 .message-content {
   flex: 1;
   background: var(--bg-tertiary);

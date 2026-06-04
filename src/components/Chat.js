@@ -170,38 +170,7 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
     setUnreadCount(0);
   };
 
-  // Test function to simulate incoming messages from actual band members
-  const simulateIncomingMessage = () => {
-    const onlineBandMembers = users.filter(u => u.status === 'online' && u.id !== currentUser?.id);
-    if (onlineBandMembers.length === 0) return;
-    
-    const testMessages = [
-      'Hey, just finished my part! 🎸',
-      'Can someone review track 3?',
-      'Great session today!',
-      'When are we meeting tomorrow?',
-      'Love the new arrangement! 🎵',
-      'Anyone up for a jam session?',
-      'Let\'s take a quick break',
-      'This is sounding really good!',
-      'Can we try that section again?',
-      'Perfect timing on that track! 👏'
-    ];
-    
-    const randomMember = onlineBandMembers[Math.floor(Math.random() * onlineBandMembers.length)];
-    const randomMessage = testMessages[Math.floor(Math.random() * testMessages.length)];
-    
-    const message = {
-      id: messages.length + 1,
-      user: randomMember.displayName || randomMember.name,
-      text: randomMessage,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      avatar: randomMember.avatar,
-      type: 'message'
-    };
-    
-    setMessages([...messages, message]);
-  };
+
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -253,6 +222,20 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
 
   const onlineUsers = users.filter(user => user.status === 'online').length;
 
+  // Compute message grouping: consecutive messages from the same user are grouped
+  const groupedMessages = messages.map((msg, i) => {
+    const prev = messages[i - 1];
+    const isGrouped =
+      prev &&
+      prev.type === 'message' &&
+      msg.type === 'message' &&
+      prev.user === msg.user;
+    return { ...msg, isGrouped };
+  });
+
+  const isOwn = (msg) =>
+    msg.user === currentUser?.displayName || msg.user === 'You';
+
   return (
     <div className={containerClass} onClick={clearUnreadCount}>
       <div className="chat-header">
@@ -262,31 +245,24 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
             {onlineUsers} online
           </span>
           <button 
-            className="icon-btn test-notification-btn" 
-            onClick={simulateIncomingMessage}
-            title="Test notification (simulate incoming message)"
-            style={{ color: '#f59e0b' }}
-          >
-            🧪
-          </button>
-          <button 
             className={`icon-btn ${notificationsEnabled ? 'notifications-active' : ''}`} 
             onClick={toggleNotifications}
             title={notificationsEnabled ? 'Notifications enabled (click to disable)' : 'Enable notifications'}
+            aria-label={notificationsEnabled ? 'Disable notifications' : 'Enable notifications'}
           >
             {notificationsEnabled ? '🔔' : '🔕'}
           </button>
           {fullScreen && (
-            <button className="icon-btn" title="Call">📞</button>
+            <button className="icon-btn" title="Call" aria-label="Start call">📞</button>
           )}
         </div>
       </div>
       
       <div className="messages-container">
-        {messages.map(message => (
+        {groupedMessages.map(message => (
           <div 
             key={message.id} 
-            className={`message ${message.user === currentUser?.displayName || message.user === 'You' ? 'own-message' : ''} ${message.type === 'notification' ? 'notification-message' : ''}`}
+            className={`message ${isOwn(message) ? 'own-message' : ''} ${message.type === 'notification' ? 'notification-message' : ''} ${message.isGrouped ? 'grouped' : ''}`}
           >
             {message.type === 'notification' ? (
               <div className="notification-content">
@@ -296,17 +272,21 @@ function Chat({ users, compact = false, fullScreen = false, currentUser }) {
               </div>
             ) : (
               <>
-                <div className="message-avatar">{message.avatar}</div>
+                <div className="message-avatar">
+                  {message.isGrouped ? null : message.avatar}
+                </div>
                 <div className="message-content">
-                  <div className="message-header">
-                    <span className="message-user">{message.user}</span>
-                    <span className="message-time">{message.time}</span>
-                  </div>
+                  {!message.isGrouped && (
+                    <div className="message-header">
+                      <span className="message-user">{message.user}</span>
+                      <span className="message-time">{message.time}</span>
+                    </div>
+                  )}
                   <p className="message-text">{message.text}</p>
-                  {fullScreen && (
+                  {fullScreen && !message.isGrouped && (
                     <div className="message-actions">
-                      <button className="message-action-btn">👍</button>
-                      <button className="message-action-btn">💬</button>
+                      <button className="message-action-btn" aria-label="Like">👍</button>
+                      <button className="message-action-btn" aria-label="Reply">💬</button>
                     </div>
                   )}
                 </div>

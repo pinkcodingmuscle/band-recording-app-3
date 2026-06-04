@@ -12,7 +12,8 @@ import BandRoster from './components/BandRoster';
 import BandApplications from './components/BandApplications';
 import { CommentsProvider } from './context/CommentsContext';
 import { BandProvider, useBand } from './context/BandContext';
-import { isApiConfigured, apiMe, apiLogout, apiGetSessions, apiCreateSession } from './lib/api';
+import { ToastProvider } from './context/ToastContext';
+import { isApiConfigured, apiMe, apiLogout, apiGetSessions, apiCreateSession, apiJoinSession } from './lib/api';
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
 // Rendered inside BandProvider so it can call useBand().
@@ -92,6 +93,26 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
     }
   };
 
+  const handleJoinSession = async () => {
+    const sessionId = window.prompt('Enter Session ID to join:');
+    if (!sessionId?.trim()) return;
+    if (!isApiConfigured) {
+      alert('Join requires a live backend connection.');
+      return;
+    }
+    try {
+      const session = await apiJoinSession(sessionId.trim());
+      setSessions(prev => {
+        const exists = prev.some(s => s.id === session.id);
+        return exists ? prev : [session, ...prev];
+      });
+      setActiveSession(session);
+      setActiveTab('recording');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   useEffect(() => {
     const handleResize = () => {
       const w = window.innerWidth;
@@ -146,7 +167,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
         {/* Top Navigation Bar */}
         <nav className="top-nav">
           <div className="nav-left">
-            <button className="menu-toggle" onClick={() => setShowSidebar(!showSidebar)}>
+            <button className="menu-toggle" onClick={() => setShowSidebar(!showSidebar)} aria-label="Toggle sidebar">
               ☰
             </button>
             <h1 className="app-logo">🎵 BandLab Studio</h1>
@@ -209,21 +230,22 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
               className="nav-btn"
               onClick={toggleTheme}
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
-            <button className="nav-btn notification-bell" title="Notifications">
+            <button className="nav-btn notification-bell" title="Notifications" aria-label="Notifications">
               🔔
               {pendingApplicationCount > 0 && (
-                <span className="notification-badge">{pendingApplicationCount}</span>
+                <span className="notification-badge" aria-label={`${pendingApplicationCount} pending`}>{pendingApplicationCount}</span>
               )}
             </button>
-            <button className="nav-btn">⚙️</button>
+            <button className="nav-btn" title="Settings" aria-label="Settings">⚙️</button>
             <div className="user-profile">
               <span className="user-name">{currentUser.username}</span>
               <span className="user-session-id">{currentUser.sessionId}</span>
             </div>
-            <button className="logout-btn" onClick={onLogout} title="Logout">
+            <button className="logout-btn" onClick={onLogout} title="Logout" aria-label="Logout">
               🚪
             </button>
           </div>
@@ -243,6 +265,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
                   activeSession={activeSession}
                   onSelectSession={setActiveSession}
                   onNewSession={handleCreateSession}
+                  onJoinSession={handleJoinSession}
                 />
               )}
               {activeTab === 'community' && userBand && (
@@ -254,6 +277,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
                   activeSession={activeSession}
                   onSelectSession={setActiveSession}
                   onNewSession={handleCreateSession}
+                  onJoinSession={handleJoinSession}
                 />
               )}
             </aside>
@@ -285,6 +309,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
                   activeSession={activeSession}
                   onSelectSession={setActiveSession}
                   onNewSession={handleCreateSession}
+                  onJoinSession={handleJoinSession}
                   viewMode="grid"
                 />
               </div>
@@ -364,14 +389,16 @@ function App() {
   }
 
   return (
-    <BandProvider currentUser={currentUser}>
-      <AppShell
-        currentUser={currentUser}
-        theme={theme}
-        toggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
-        onLogout={handleLogout}
-      />
-    </BandProvider>
+    <ToastProvider>
+      <BandProvider currentUser={currentUser}>
+        <AppShell
+          currentUser={currentUser}
+          theme={theme}
+          toggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
+          onLogout={handleLogout}
+        />
+      </BandProvider>
+    </ToastProvider>
   );
 }
 
