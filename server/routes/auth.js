@@ -1,11 +1,47 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from '@simplewebauthn/server';
 import verifyJWT from '../middleware/auth.js';
 import User from '../models/User.js';
 
 const router = express.Router();
 
+const rpName = process.env.RP_NAME || 'BandLab Studio';
+const rpID   = process.env.RP_ID || 'localhost';
+const expectedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+
+// ── In-memory challenge store (TTL: 5 min) ────────────────────────────────────
+const challengeStore = new Map();
+
+function storeChallengeToken(data) {
+  const token = randomBytes(16).toString('hex');
+  challengeStore.set(token, { ...data, expiresAt: Date.now() + 5 * 60 * 1000 });
+  return token;
+}
+
+function consumeChallenge(token) {
+  const entry = challengeStore.get(token);
+  challengeStore.delete(token);
+  if (!entry || entry.expiresAt < Date.now()) return null;
+  return entry;
+}
+
+// Prune expired entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of challengeStore.entries()) {
+    if (v.expiresAt < now) challengeStore.delete(k);
+  }
+}, 60_000);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function makeToken(userId) {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
@@ -13,6 +49,8 @@ function makeToken(userId) {
 function userView(doc) {
   return { id: doc._id.toString(), username: doc.displayName, avatar: doc.avatar };
 }
+
+// ── Email / password ──────────────────────────────────────────────────────────
 
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
@@ -37,7 +75,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user || !user.passwordHash) return res.status(401).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
     res.json({ token: makeToken(user._id.toString()), user: userView(user) });
@@ -52,6 +90,250 @@ router.get('/me', verifyJWT, async (req, res) => {
     const user = await User.findById(req.user.userId).lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user: userView(user) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Passkey: new-account signup ───────────────────────────────────────────────
+
+// POST /api/auth/passkey/signup-options
+router.post('/passkey/signup-options', async (req, res) => {
+  try {
+    const { email, displayName, avatar } = req.body;
+    if (!email || !displayName) {
+      return res.status(400).json({ error: 'email and displayName are required' });
+    }
+    const exists = await User.findOne({ email: email.toLowerCase().trim() });
+    if (exists) return res.status(409).json({ error: 'Email already in use' });
+
+    const userIdBytes = randomBytes(32);
+    const options = await generateRegistrationOptions({
+      rpName,
+      rpID,
+      userName: email.toLowerCase().trim(),
+      userDisplayName: displayName,
+      userID: userIdBytes,
+      attestationType: 'none',
+      authenticatorSelection: {
+        residentKey: 'preferred',
+        userVerification: 'preferred',
+      },
+    });
+
+    const challengeToken = storeChallengeToken({
+      challenge: options.challenge,
+      email: email.toLowerCase().trim(),
+      displayName,
+      avatar: avatar || '🎵',
+      passkeyUserId: userIdBytes.toString('base64url'),
+      type: 'signup',
+    });
+
+    res.json({ options, challengeToken });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/passkey/signup-verify
+router.post('/passkey/signup-verify', async (req, res) => {
+  try {
+    const { challengeToken, attResp } = req.body;
+    const entry = consumeChallenge(challengeToken);
+    if (!entry || entry.type !== 'signup') {
+      return res.status(400).json({ error: 'Invalid or expired challenge' });
+    }
+
+    const verification = await verifyRegistrationResponse({
+      response: attResp,
+      expectedChallenge: entry.challenge,
+      expectedOrigin,
+      expectedRPID: rpID,
+    });
+
+    if (!verification.verified) {
+      return res.status(400).json({ error: 'Passkey verification failed' });
+    }
+
+    const { credential } = verification.registrationInfo;
+
+    const exists = await User.findOne({ email: entry.email });
+    if (exists) return res.status(409).json({ error: 'Email already in use' });
+
+    const user = await User.create({
+      email: entry.email,
+      passwordHash: randomBytes(32).toString('hex'), // unusable dummy hash
+      displayName: entry.displayName,
+      avatar: entry.avatar,
+      passkeyUserId: Buffer.from(entry.passkeyUserId, 'base64url'),
+      passkeys: [{
+        credentialID: credential.id,
+        publicKey: Buffer.from(credential.publicKey),
+        counter: credential.counter,
+        transports: credential.transports || [],
+        deviceType: verification.registrationInfo.credentialDeviceType,
+        backedUp: verification.registrationInfo.credentialBackedUp,
+      }],
+    });
+
+    res.status(201).json({ token: makeToken(user._id.toString()), user: userView(user) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Passkey: authentication (login) ──────────────────────────────────────────
+
+// POST /api/auth/passkey/login-options
+router.post('/passkey/login-options', async (req, res) => {
+  try {
+    const options = await generateAuthenticationOptions({
+      rpID,
+      userVerification: 'preferred',
+    });
+
+    const challengeToken = storeChallengeToken({
+      challenge: options.challenge,
+      type: 'login',
+    });
+
+    res.json({ options, challengeToken });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/passkey/login-verify
+router.post('/passkey/login-verify', async (req, res) => {
+  try {
+    const { challengeToken, authResp } = req.body;
+    const entry = consumeChallenge(challengeToken);
+    if (!entry || entry.type !== 'login') {
+      return res.status(400).json({ error: 'Invalid or expired challenge' });
+    }
+
+    const credentialID = authResp.id;
+    const user = await User.findOne({ 'passkeys.credentialID': credentialID });
+    if (!user) {
+      return res.status(401).json({ error: 'No passkey found for this device. Please sign up first.' });
+    }
+
+    const passkeyDoc = user.passkeys.find(pk => pk.credentialID === credentialID);
+
+    const verification = await verifyAuthenticationResponse({
+      response: authResp,
+      expectedChallenge: entry.challenge,
+      expectedOrigin,
+      expectedRPID: rpID,
+      credential: {
+        id: passkeyDoc.credentialID,
+        publicKey: passkeyDoc.publicKey,
+        counter: passkeyDoc.counter,
+        transports: passkeyDoc.transports,
+      },
+    });
+
+    if (!verification.verified) {
+      return res.status(401).json({ error: 'Passkey authentication failed' });
+    }
+
+    passkeyDoc.counter = verification.authenticationInfo.newCounter;
+    await user.save();
+
+    res.json({ token: makeToken(user._id.toString()), user: userView(user) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Passkey: add to existing account (authenticated) ─────────────────────────
+
+// POST /api/auth/passkey/register-options  (requires JWT)
+router.post('/passkey/register-options', verifyJWT, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const excludeCredentials = user.passkeys.map(pk => ({
+      id: pk.credentialID,
+      transports: pk.transports,
+    }));
+
+    let userIdBytes = user.passkeyUserId;
+    if (!userIdBytes) {
+      userIdBytes = randomBytes(32);
+      user.passkeyUserId = userIdBytes;
+      await user.save();
+    }
+
+    const options = await generateRegistrationOptions({
+      rpName,
+      rpID,
+      userName: user.email,
+      userDisplayName: user.displayName,
+      userID: userIdBytes,
+      attestationType: 'none',
+      excludeCredentials,
+      authenticatorSelection: {
+        residentKey: 'preferred',
+        userVerification: 'preferred',
+      },
+    });
+
+    const challengeToken = storeChallengeToken({
+      challenge: options.challenge,
+      userId: user._id.toString(),
+      type: 'register',
+    });
+
+    res.json({ options, challengeToken });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/passkey/register-verify  (requires JWT)
+router.post('/passkey/register-verify', verifyJWT, async (req, res) => {
+  try {
+    const { challengeToken, attResp } = req.body;
+    const entry = consumeChallenge(challengeToken);
+    if (!entry || entry.type !== 'register' || entry.userId !== req.user.userId) {
+      return res.status(400).json({ error: 'Invalid or expired challenge' });
+    }
+
+    const verification = await verifyRegistrationResponse({
+      response: attResp,
+      expectedChallenge: entry.challenge,
+      expectedOrigin,
+      expectedRPID: rpID,
+    });
+
+    if (!verification.verified) {
+      return res.status(400).json({ error: 'Passkey verification failed' });
+    }
+
+    const { credential } = verification.registrationInfo;
+
+    const user = await User.findById(entry.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const alreadyRegistered = user.passkeys.some(pk => pk.credentialID === credential.id);
+    if (alreadyRegistered) {
+      return res.status(409).json({ error: 'This passkey is already registered' });
+    }
+
+    user.passkeys.push({
+      credentialID: credential.id,
+      publicKey: Buffer.from(credential.publicKey),
+      counter: credential.counter,
+      transports: credential.transports || [],
+      deviceType: verification.registrationInfo.credentialDeviceType,
+      backedUp: verification.registrationInfo.credentialBackedUp,
+    });
+    await user.save();
+
+    res.json({ ok: true, passkeyCount: user.passkeys.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

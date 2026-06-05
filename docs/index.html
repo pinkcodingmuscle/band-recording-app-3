@@ -304,6 +304,8 @@ erDiagram
         string passwordHash
         string displayName
         string avatar
+        buffer passkeyUserId
+        array passkeys
         datetime createdAt
     }
     Session {
@@ -389,9 +391,11 @@ erDiagram
           <table>
             <tr><td class="pk">_id</td><td>ObjectId</td></tr>
             <tr><td>email</td><td>String · unique</td></tr>
-            <tr><td>passwordHash</td><td>String</td></tr>
+            <tr><td>passwordHash</td><td>String · optional</td></tr>
             <tr><td>displayName</td><td>String</td></tr>
             <tr><td>avatar</td><td><span class="def">default '🎵'</span></td></tr>
+            <tr><td>passkeyUserId</td><td>Buffer · WebAuthn user.id</td></tr>
+            <tr><td>passkeys</td><td>[Passkey] · credentialID, publicKey, counter, transports</td></tr>
             <tr><td>createdAt</td><td>Date · auto</td></tr>
             <tr><td>updatedAt</td><td>Date · auto</td></tr>
           </table>
@@ -745,6 +749,12 @@ erDiagram
         <div class="route-row"><span class="method POST">POST</span><span class="route-path">/signup</span><span class="route-note">register</span></div>
         <div class="route-row"><span class="method POST">POST</span><span class="route-path">/login</span><span class="route-note">JWT</span></div>
         <div class="route-row"><span class="method GET">GET</span><span class="route-path">/me</span><span class="route-note">current user</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/passkey/signup-options</span><span class="route-note">passkey new-account options</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/passkey/signup-verify</span><span class="route-note">create account + JWT</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/passkey/login-options</span><span class="route-note">passkey login options</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/passkey/login-verify</span><span class="route-note">verify assertion + JWT</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/passkey/register-options</span><span class="route-note">add passkey (auth)</span></div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/passkey/register-verify</span><span class="route-note">save new passkey (auth)</span></div>
       </div>
 
       <div class="route-group">
