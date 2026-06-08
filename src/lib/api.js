@@ -238,3 +238,49 @@ export async function apiReorderSetlist(items) {
   if (!res.ok) return;
   return res.json();
 }
+
+// ── Passkey ───────────────────────────────────────────────────────────────────
+export async function apiPasskeySignupOptions(displayName, avatar) {
+  const res = await fetch(`${BASE}/api/auth/passkey/signup-options`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName, avatar }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to get signup options');
+  return data;
+}
+
+export async function apiPasskeySignupVerify(displayName, avatar, attestation) {
+  const res = await fetch(`${BASE}/api/auth/passkey/signup-verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName, avatar, attestation }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Passkey signup failed');
+  setToken(data.token);
+  return data.user;
+}
+
+export async function apiPasskeyLoginOptions() {
+  const res = await fetch(`${BASE}/api/auth/passkey/login-options`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to get login options');
+  return data;
+}
+
+export async function apiPasskeyLoginVerify(assertion) {
+  const res = await fetch(`${BASE}/api/auth/passkey/login-verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assertion }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Passkey login failed');
+  setToken(data.token);
+  return data.user;
+}

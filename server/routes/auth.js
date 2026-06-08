@@ -15,7 +15,9 @@ const router = express.Router();
 
 const rpName = process.env.RP_NAME || 'BandLab Studio';
 const rpID   = process.env.RP_ID || 'localhost';
-const expectedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const expectedOrigin  = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const clientOrigin    = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const serverURL       = process.env.SERVER_URL    || 'http://localhost:4000';
 
 // ── In-memory challenge store (TTL: 5 min) ────────────────────────────────────
 const challengeStore = new Map();
@@ -336,6 +338,133 @@ router.post('/passkey/register-verify', verifyJWT, async (req, res) => {
     res.json({ ok: true, passkeyCount: user.passkeys.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Google OAuth ──────────────────────────────────────────────────────────────
+
+// GET /api/auth/google
+router.get('/google', (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.redirect(`${clientOrigin}?error=${encodeURIComponent('Google login is not configured on this server')}`);
+  }
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
+  url.searchParams.set('redirect_uri', `${serverURL}/api/auth/google/callback`);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'openid email profile');
+  url.searchParams.set('prompt', 'select_account');
+  res.redirect(url.toString());
+});
+
+// GET /api/auth/google/callback
+router.get('/google/callback', async (req, res) => {
+  const { code, error: oauthError } = req.query;
+  if (oauthError || !code) {
+    return res.redirect(`${clientOrigin}?error=${encodeURIComponent('Google sign-in was cancelled')}`);
+  }
+  try {
+    // Exchange authorisation code for tokens
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: `${serverURL}/api/auth/google/callback`,
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokens = await tokenRes.json();
+    if (!tokens.id_token) throw new Error('No ID token returned from Google');
+
+    // Decode the ID token payload (trust the HTTPS response from Google's token endpoint)
+    const [, payloadB64] = tokens.id_token.split('.');
+    const { sub: googleId, email, name } = JSON.parse(
+      Buffer.from(payloadB64, 'base64url').toString('utf8')
+    );
+    if (!email) throw new Error('Could not retrieve email from Google');
+
+    let user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      user = await User.create({
+        email: email.toLowerCase(),
+        passwordHash: randomBytes(32).toString('hex'),
+        displayName: name || email.split('@')[0],
+        avatar: '🎵',
+      });
+    }
+
+    const token = makeToken(user._id.toString());
+    res.redirect(`${clientOrigin}?token=${token}`);
+  } catch (err) {
+    res.redirect(`${clientOrigin}?error=${encodeURIComponent('Google sign-in failed. Please try again.')}`);
+  }
+});
+
+// ── Microsoft OAuth ───────────────────────────────────────────────────────────
+
+// GET /api/auth/microsoft
+router.get('/microsoft', (req, res) => {
+  if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) {
+    return res.redirect(`${clientOrigin}?error=${encodeURIComponent('Microsoft login is not configured on this server')}`);
+  }
+  const url = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+  url.searchParams.set('client_id', process.env.MICROSOFT_CLIENT_ID);
+  url.searchParams.set('redirect_uri', `${serverURL}/api/auth/microsoft/callback`);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'openid email profile User.Read');
+  url.searchParams.set('prompt', 'select_account');
+  res.redirect(url.toString());
+});
+
+// GET /api/auth/microsoft/callback
+router.get('/microsoft/callback', async (req, res) => {
+  const { code, error: oauthError } = req.query;
+  if (oauthError || !code) {
+    return res.redirect(`${clientOrigin}?error=${encodeURIComponent('Microsoft sign-in was cancelled')}`);
+  }
+  try {
+    // Exchange authorisation code for tokens
+    const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.MICROSOFT_CLIENT_ID,
+        client_secret: process.env.MICROSOFT_CLIENT_SECRET,
+        redirect_uri: `${serverURL}/api/auth/microsoft/callback`,
+        grant_type: 'authorization_code',
+        scope: 'openid email profile User.Read',
+      }),
+    });
+    const tokens = await tokenRes.json();
+    if (!tokens.access_token) throw new Error('No access token returned from Microsoft');
+
+    // Fetch user profile from Microsoft Graph
+    const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    const profile = await profileRes.json();
+    const email = (profile.mail || profile.userPrincipalName || '').toLowerCase();
+    if (!email) throw new Error('Could not retrieve email from Microsoft');
+    const displayName = profile.displayName || email.split('@')[0];
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        email,
+        passwordHash: randomBytes(32).toString('hex'),
+        displayName,
+        avatar: '🎵',
+      });
+    }
+
+    const token = makeToken(user._id.toString());
+    res.redirect(`${clientOrigin}?token=${token}`);
+  } catch (err) {
+    res.redirect(`${clientOrigin}?error=${encodeURIComponent('Microsoft sign-in failed. Please try again.')}`);
   }
 });
 

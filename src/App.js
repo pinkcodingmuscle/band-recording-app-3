@@ -12,7 +12,7 @@ import BandRoster from './components/BandRoster';
 import BandApplications from './components/BandApplications';
 import { CommentsProvider } from './context/CommentsContext';
 import { BandProvider, useBand } from './context/BandContext';
-import { isApiConfigured, apiMe, apiLogout, apiGetSessions, apiCreateSession, apiJoinSession } from './lib/api';
+import { isApiConfigured, apiMe, apiLogout, apiGetSessions, apiCreateSession, apiJoinSession, setToken } from './lib/api';
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
 // Rendered inside BandProvider so it can call useBand().
@@ -348,6 +348,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   // True while we check for an existing JWT session on page load
   const [authLoading, setAuthLoading] = useState(isApiConfigured);
+  const [loginError, setLoginError] = useState('');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
   useEffect(() => {
@@ -355,9 +356,22 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Restore existing session from JWT stored in localStorage
+  // Restore existing session from JWT stored in localStorage (also handles OAuth redirects)
   useEffect(() => {
-    if (!isApiConfigured) return;
+    // Consume ?token= or ?error= from OAuth redirects before anything else
+    const params = new URLSearchParams(window.location.search);
+    const oauthToken = params.get('token');
+    const oauthError = params.get('error');
+    if (oauthToken || oauthError) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (oauthToken) setToken(oauthToken);
+    if (oauthError) setLoginError(decodeURIComponent(oauthError));
+
+    if (!isApiConfigured) {
+      setAuthLoading(false);
+      return;
+    }
     apiMe().then((user) => {
       if (user) {
         const sessionId = 'sess' + Math.floor(10000 + Math.random() * 90000);
@@ -383,7 +397,7 @@ function App() {
   }
 
   if (!currentUser) {
-    return <Login onLogin={setCurrentUser} />;
+    return <Login onLogin={setCurrentUser} initialError={loginError} />;
   }
 
   return (
