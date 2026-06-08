@@ -11,6 +11,7 @@ import commentsRouter from './routes/comments.js';
 import chatRouter from './routes/chat.js';
 import setlistRouter from './routes/setlist.js';
 import sessionsRouter from './routes/sessions.js';
+import feedbackRouter from './routes/feedback.js';
 import initSocket from './socket/index.js';
 
 await connectDB();
@@ -36,6 +37,7 @@ app.use('/api/comments', commentsRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/setlist', setlistRouter);
 app.use('/api/sessions', sessionsRouter);
+app.use('/api/feedback', feedbackRouter);
 
 initSocket(io);
 

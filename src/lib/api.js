@@ -239,6 +239,64 @@ export async function apiReorderSetlist(items) {
   return res.json();
 }
 
+// ── Feedback ─────────────────────────────────────────────────────────────────
+export async function apiFeedbackSubmit(payload) {
+  const res = await fetch(`${BASE}/api/feedback`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to submit feedback');
+  return data;
+}
+
+export async function apiFeedbackMine({ page = 1, status } = {}) {
+  const params = new URLSearchParams({ page: String(page) });
+  if (status) params.set('status', status);
+
+  const res = await fetch(`${BASE}/api/feedback/mine?${params.toString()}`, {
+    headers: authHeaders(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to load feedback');
+  return data;
+}
+
+export async function apiFeedbackAdminList({ page = 1, status, category } = {}) {
+  const params = new URLSearchParams({ page: String(page) });
+  if (status) params.set('status', status);
+  if (category) params.set('category', category);
+
+  const res = await fetch(`${BASE}/api/feedback?${params.toString()}`, {
+    headers: authHeaders(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to load admin feedback');
+  return data;
+}
+
+export async function apiFeedbackAdminUpdateStatus(id, payload) {
+  const res = await fetch(`${BASE}/api/feedback/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update feedback');
+  return data;
+}
+
+export async function apiFeedbackAdminDelete(id) {
+  const res = await fetch(`${BASE}/api/feedback/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to delete feedback');
+  return data;
+}
+
 // ── Passkey ───────────────────────────────────────────────────────────────────
 export async function apiPasskeySignupOptions(displayName, avatar) {
   const res = await fetch(`${BASE}/api/auth/passkey/signup-options`, {

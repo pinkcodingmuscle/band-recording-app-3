@@ -18,6 +18,7 @@ const UserSchema = new mongoose.Schema(
     passwordHash: { type: String },                   // optional for passkey-only accounts
     displayName: { type: String, required: true, trim: true },
     avatar: { type: String, default: '🎵' },
+    isAdmin: { type: Boolean, default: false },
     passkeyUserId: { type: Buffer },                  // stable WebAuthn user.id bytes
     passkeys: { type: [PasskeySchema], default: [] },
   },

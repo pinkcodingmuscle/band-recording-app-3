@@ -24,6 +24,7 @@
       --setlist:   #ec4899;
       --band:      #eab308;
       --gridffs:   #64748b;
+      --feedback:  #e879f9;
     }
 
     body {
@@ -239,6 +240,7 @@
     .GET    { background: #065f4622; color: #34d399; border: 1px solid #064e3b; }
     .POST   { background: #1e3a8a22; color: #60a5fa; border: 1px solid #1e3a8a; }
     .PUT    { background: #78350f22; color: #fbbf24; border: 1px solid #78350f; }
+    .PATCH  { background: #78350f22; color: #fbbf24; border: 1px solid #78350f; }
     .DELETE { background: #7f1d1d22; color: #f87171; border: 1px solid #7f1d1d; }
     .route-path { color: var(--text); }
     .route-note { color: var(--muted); font-size: 0.7rem; margin-left: auto; }
@@ -306,6 +308,20 @@ erDiagram
         string avatar
         buffer passkeyUserId
         array passkeys
+        boolean isAdmin
+        datetime createdAt
+    }
+    Feedback {
+        ObjectId _id PK
+        string userId FK
+        string category
+        number rating
+        string currentArea
+        string description
+        string priority
+        string screenshot
+        string status
+        string adminNotes
         datetime createdAt
     }
     Session {
@@ -365,6 +381,7 @@ erDiagram
     User ||--o{ Comment : "authors"
     User ||--o{ ChatMessage : "sends"
     User ||--o{ SetlistItem : "owns"
+    User ||--o{ Feedback : "submits"
     Session ||--o{ ChatMessage : "contains"
     Track ||--o{ Comment : "has"
       </div>
@@ -396,6 +413,7 @@ erDiagram
             <tr><td>avatar</td><td><span class="def">default '🎵'</span></td></tr>
             <tr><td>passkeyUserId</td><td>Buffer · WebAuthn user.id</td></tr>
             <tr><td>passkeys</td><td>[Passkey] · credentialID, publicKey, counter, transports</td></tr>
+            <tr><td>isAdmin</td><td><span class="def">default false</span></td></tr>
             <tr><td>createdAt</td><td>Date · auto</td></tr>
             <tr><td>updatedAt</td><td>Date · auto</td></tr>
           </table>
@@ -522,6 +540,34 @@ erDiagram
           </table>
           <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--muted)">
             Unique index: clientId + userId
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot" style="background:var(--feedback)"></div>
+          <span class="model-name">Feedback</span>
+          <span class="layer-badge badge-mongo">MongoDB</span>
+        </div>
+        <div class="card-body">
+          <table>
+            <tr><td class="pk">_id</td><td>ObjectId</td></tr>
+            <tr><td class="fk">userId</td><td>String · → User (JWT)</td></tr>
+            <tr><td class="enum">category</td><td>bug_report · feature_request · general · praise · challenge</td></tr>
+            <tr><td>rating</td><td>Number 1–5 · optional</td></tr>
+            <tr><td>currentArea</td><td>String · active tab</td></tr>
+            <tr><td>description</td><td>String · max 2 000 chars</td></tr>
+            <tr><td class="enum">priority</td><td>low · medium · high · <span class="def">default 'medium'</span></td></tr>
+            <tr><td>screenshot</td><td>String · base64 JPEG ≤500 KB</td></tr>
+            <tr><td class="enum">status</td><td>new · reviewed · planned · resolved · wont_fix · <span class="def">default 'new'</span></td></tr>
+            <tr><td>adminNotes</td><td>String · optional</td></tr>
+            <tr><td>createdAt</td><td>Date · auto</td></tr>
+            <tr><td>updatedAt</td><td>Date · auto</td></tr>
+          </table>
+          <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--muted)">
+            Indexes: userId + createdAt · category + status
           </div>
         </div>
       </div>
@@ -728,6 +774,13 @@ erDiagram
             <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">Track.audioFileId</td>
             <td class="rel-desc">Binary audio blob in GridFS</td>
           </tr>
+          <tr>
+            <td><span class="entity-chip" style="background:#3b82f622;color:#60a5fa">User</span></td>
+            <td><span class="rel-type">1 → many</span></td>
+            <td><span class="entity-chip" style="background:#e879f922;color:#f0abfc">Feedback</span></td>
+            <td style="font-family:monospace;font-size:0.78rem;color:var(--muted)">Feedback.userId</td>
+            <td class="rel-desc">User submits feedback items</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -815,6 +868,17 @@ erDiagram
         <div class="route-row"><span class="method DELETE">DEL</span><span class="route-path">/:id</span><span class="route-note">delete</span></div>
       </div>
 
+      <div class="route-group">
+        <div class="route-group-header" style="color:var(--feedback)">
+          <span>💬</span> /api/feedback
+        </div>
+        <div class="route-row"><span class="method POST">POST</span><span class="route-path">/</span><span class="route-note">submit (user)</span></div>
+        <div class="route-row"><span class="method GET">GET</span><span class="route-path">/mine</span><span class="route-note">own submissions (user)</span></div>
+        <div class="route-row"><span class="method GET">GET</span><span class="route-path">/</span><span class="route-note">all submissions (admin)</span></div>
+        <div class="route-row"><span class="method PATCH">PATCH</span><span class="route-path">/:id/status</span><span class="route-note">update status (admin)</span></div>
+        <div class="route-row"><span class="method DELETE">DEL</span><span class="route-path">/:id</span><span class="route-note">delete (admin)</span></div>
+      </div>
+
     </div>
   </section>
 
@@ -832,7 +896,7 @@ erDiagram
         <ul>
           <li>Users, Sessions, Tracks</li>
           <li>Comments, ChatMessages</li>
-          <li>SetlistItems</li>
+          <li>SetlistItems, Feedback</li>
           <li>JWT auth (bcrypt hashed passwords)</li>
         </ul>
       </div>

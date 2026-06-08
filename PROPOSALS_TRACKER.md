@@ -29,6 +29,7 @@ Update the status column and the relevant proposal file header whenever work sta
 | Backend Migration — Supabase | [BACKEND_MIGRATION_PROPOSAL.md](BACKEND_MIGRATION_PROPOSAL.md) | 🔄 In Progress | Mar 4, 2026 |
 | Setlist Playback & Recording Attachment | [SETLIST_PLAYBACK_PROPOSAL.md](SETLIST_PLAYBACK_PROPOSAL.md) | 📋 Planned | Mar 4, 2026 |
 | UX Improvements (12 proposals) | [UX_IMPROVEMENTS_PROPOSAL.md](UX_IMPROVEMENTS_PROPOSAL.md) | 📋 Planned | Mar 28, 2026 |
+| In-App User Feedback System | [FEEDBACK_SYSTEM_PROPOSAL.md](FEEDBACK_SYSTEM_PROPOSAL.md) | ✅ Implemented | Jun 8, 2026 |
 
 ---
 
@@ -147,6 +148,29 @@ Twelve independent UX improvements covering feedback, discoverability, accessibi
 | 10 — Drag-and-Drop Track Reordering | 📋 |
 | 11 — Mobile Bottom Navigation Bar | 📋 |
 | 12 — Project Activity Feed | 📋 |
+
+---
+
+### In-App User Feedback System
+**File:** [FEEDBACK_SYSTEM_PROPOSAL.md](FEEDBACK_SYSTEM_PROPOSAL.md)
+
+Floating feedback button + modal for users to submit categorized feedback (bug reports, feature requests, praise, etc.) with star rating, priority, and optional screenshot. Submissions stored in MongoDB. Users view their history in a slide-in panel. Admin-only API routes for backend management.
+
+| Feature | Status |
+|---|---|
+| `Feedback` Mongoose model | ✅ |
+| `isAdmin` field on `User` model | ✅ |
+| `isAdmin` in JWT payload | ✅ |
+| `POST /api/feedback` — submit | ✅ |
+| `GET /api/feedback/mine` — user history | ✅ |
+| `GET /api/feedback` — admin list | ✅ |
+| `PATCH /api/feedback/:id/status` — admin update | ✅ |
+| `DELETE /api/feedback/:id` — admin delete | ✅ |
+| `apiFeedbackSubmit` + `apiFeedbackMine` in api.js | ✅ |
+| `FeedbackButton` component (floating, fixed) | ✅ |
+| `FeedbackModal` component (form + screenshot) | ✅ |
+| `MyFeedbackPanel` component (history slide-in) | ✅ |
+| `ToastProvider` wired into App.js | ✅ |
 
 ---
 

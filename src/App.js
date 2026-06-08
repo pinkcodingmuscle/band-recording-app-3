@@ -10,8 +10,11 @@ import BandCalendar from './components/BandCalendar';
 import BandSetup from './components/BandSetup';
 import BandRoster from './components/BandRoster';
 import BandApplications from './components/BandApplications';
+import FeedbackButton from './components/FeedbackButton';
+import AdminFeedbackReview from './components/AdminFeedbackReview';
 import { CommentsProvider } from './context/CommentsContext';
 import { BandProvider, useBand } from './context/BandContext';
+import { ToastProvider } from './context/ToastContext';
 import { isApiConfigured, apiMe, apiLogout, apiGetSessions, apiCreateSession, apiJoinSession, setToken } from './lib/api';
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
@@ -24,7 +27,13 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
   const [showSidebar, setShowSidebar] = useState(() => window.innerWidth > 768);
   const [sessions, setSessions] = useState([]);
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    try { return localStorage.getItem('bannerDismissed') === 'true'; } catch { return false; }
+  });
+  const [sessionModal, setSessionModal] = useState(null); // 'create' | 'join'
+  const [sessionModalInput, setSessionModalInput] = useState('');
+  const [sessionModalError, setSessionModalError] = useState('');
+  const [sessionModalLoading, setSessionModalLoading] = useState(false);
 
   // Derive real members from the band roster
   const bandMembers = userBand
@@ -67,48 +76,69 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
     }
   }, [currentUser?.id]);
 
-  const handleCreateSession = async () => {
-    const name = window.prompt('Project name:');
-    if (!name?.trim()) return;
-    if (isApiConfigured) {
-      try {
-        const session = await apiCreateSession(name.trim());
-        setSessions(prev => [session, ...prev]);
-        setActiveSession(session);
-        setActiveTab('recording');
-      } catch (err) {
-        alert(err.message);
-      }
-    } else {
-      const session = {
-        id: Date.now(), name: name.trim(),
-        date: new Date().toISOString().split('T')[0],
-        tracks: 0, status: 'active', collaborators: 1, duration: '0:00',
-        sessionId: 'sess' + Date.now(),
-      };
-      setSessions(prev => [session, ...prev]);
-      setActiveSession(session);
-      setActiveTab('recording');
-    }
+  const handleCreateSession = () => {
+    setSessionModal('create');
+    setSessionModalInput('');
+    setSessionModalError('');
   };
 
-  const handleJoinSession = async () => {
-    const sessionId = window.prompt('Enter Session ID to join:');
-    if (!sessionId?.trim()) return;
-    if (!isApiConfigured) {
-      alert('Join requires a live backend connection.');
+  const handleJoinSession = () => {
+    setSessionModal('join');
+    setSessionModalInput('');
+    setSessionModalError('');
+  };
+
+  const handleSessionModalSubmit = async () => {
+    if (!sessionModalInput.trim()) {
+      setSessionModalError(sessionModal === 'create' ? 'Enter a project name.' : 'Enter a Session ID.');
       return;
     }
-    try {
-      const session = await apiJoinSession(sessionId.trim());
-      setSessions(prev => {
-        const exists = prev.some(s => s.id === session.id);
-        return exists ? prev : [session, ...prev];
-      });
-      setActiveSession(session);
-      setActiveTab('recording');
-    } catch (err) {
-      alert(err.message);
+    setSessionModalLoading(true);
+    setSessionModalError('');
+    if (sessionModal === 'create') {
+      if (isApiConfigured) {
+        try {
+          const session = await apiCreateSession(sessionModalInput.trim());
+          setSessions(prev => [session, ...prev]);
+          setActiveSession(session);
+          setActiveTab('studio');
+          setSessionModal(null);
+        } catch (err) {
+          setSessionModalError(err.message);
+          setSessionModalLoading(false);
+        }
+      } else {
+        const session = {
+          id: Date.now(), name: sessionModalInput.trim(),
+          date: new Date().toISOString().split('T')[0],
+          tracks: 0, status: 'active', collaborators: 1, duration: '0:00',
+          sessionId: 'sess' + Date.now(),
+        };
+        setSessions(prev => [session, ...prev]);
+        setActiveSession(session);
+        setActiveTab('studio');
+        setSessionModal(null);
+        setSessionModalLoading(false);
+      }
+    } else {
+      if (!isApiConfigured) {
+        setSessionModalError('Join requires a live backend connection.');
+        setSessionModalLoading(false);
+        return;
+      }
+      try {
+        const session = await apiJoinSession(sessionModalInput.trim());
+        setSessions(prev => {
+          const exists = prev.some(s => s.id === session.id);
+          return exists ? prev : [session, ...prev];
+        });
+        setActiveSession(session);
+        setActiveTab('studio');
+        setSessionModal(null);
+      } catch (err) {
+        setSessionModalError(err.message);
+        setSessionModalLoading(false);
+      }
     }
   };
 
@@ -124,10 +154,19 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
   }, []);
 
   const isMobile = windowWidth < 768;
+  const activeTabHasSidebar = activeTab === 'studio' || activeTab === 'projects' || (activeTab === 'community' && !!userBand);
+
+  // Persist banner dismissed state across page loads
+  useEffect(() => {
+    try { localStorage.setItem('bannerDismissed', String(bannerDismissed)); } catch {}
+  }, [bannerDismissed]);
 
   // Re-show banner if user's band status changes (e.g. they just left a band)
   useEffect(() => {
-    if (!userBand) setBannerDismissed(false);
+    if (!userBand) {
+      setBannerDismissed(false);
+      try { localStorage.removeItem('bannerDismissed'); } catch {}
+    }
   }, [userBand?.id]);
 
   return (
@@ -159,91 +198,106 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
                 </>
               )}
             </div>
-            <button className="banner-dismiss" onClick={() => setBannerDismissed(true)} title="Dismiss">✕</button>
+            <button className="banner-dismiss" aria-label="Dismiss banner" onClick={() => setBannerDismissed(true)} title="Dismiss">✕</button>
           </div>
         )}
 
         {/* Top Navigation Bar */}
         <nav className="top-nav">
           <div className="nav-left">
-            <button className="menu-toggle" onClick={() => setShowSidebar(!showSidebar)}>
-              ☰
-            </button>
+            {activeTabHasSidebar && (
+              <button className="menu-toggle" aria-label="Toggle sidebar" onClick={() => setShowSidebar(!showSidebar)}>
+                ☰
+              </button>
+            )}
             <h1 className="app-logo">🎵 BandLab Studio</h1>
-            <div className="session-info">
-              <span className="session-label">Session:</span>
-              <span className="session-id">{currentUser.sessionId}</span>
-            </div>
           </div>
 
           <div className="nav-tabs">
             <button
               className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+              aria-label="Home"
               onClick={() => setActiveTab('dashboard')}
             >
               <span className="tab-icon">🏠</span><span className="tab-label">Home</span>
             </button>
             <button
               className={`nav-tab ${activeTab === 'calendar' ? 'active' : ''}`}
+              aria-label="Calendar"
               onClick={() => setActiveTab('calendar')}
             >
               <span className="tab-icon">📅</span><span className="tab-label">Calendar</span>
             </button>
             <button
               className={`nav-tab ${activeTab === 'setlist' ? 'active' : ''}`}
+              aria-label="Setlist"
               onClick={() => setActiveTab('setlist')}
             >
               <span className="tab-icon">🎵</span><span className="tab-label">Setlist</span>
             </button>
             <button
               className={`nav-tab ${activeTab === 'studio' ? 'active' : ''}`}
+              aria-label="Studio"
               onClick={() => setActiveTab('studio')}
             >
               <span className="tab-icon">🎙️</span><span className="tab-label">Studio</span>
             </button>
             <button
               className={`nav-tab ${activeTab === 'projects' ? 'active' : ''}`}
+              aria-label="Projects"
               onClick={() => setActiveTab('projects')}
             >
               <span className="tab-icon">📁</span><span className="tab-label">Projects</span>
             </button>
             <button
               className={`nav-tab ${activeTab === 'community' ? 'active' : ''}`}
+              aria-label={`Band${pendingApplicationCount > 0 ? ` (${pendingApplicationCount} pending)` : ''}`}
               onClick={() => setActiveTab('community')}
             >
               <span className="tab-icon">👥</span><span className="tab-label">Band</span>
-              {pendingApplicationCount > 0 && (
-                <span className="tab-notify-dot">{pendingApplicationCount}</span>
-              )}
             </button>
             <button
               className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
+              aria-label="Chat"
               onClick={() => setActiveTab('chat')}
             >
               <span className="tab-icon">💬</span><span className="tab-label">Chat</span>
             </button>
+            {currentUser?.isAdmin && (
+              <button
+                className={`nav-tab ${activeTab === 'admin-feedback' ? 'active' : ''}`}
+                aria-label="Admin Feedback"
+                onClick={() => setActiveTab('admin-feedback')}
+              >
+                <span className="tab-icon">🛠️</span><span className="tab-label">Admin</span>
+              </button>
+            )}
           </div>
 
           <div className="nav-right">
             <button
               className="nav-btn"
-              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              onClick={toggleTheme}
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
-            <button className="nav-btn notification-bell" title="Notifications">
+            <button
+              className="nav-btn notification-bell"
+              aria-label={pendingApplicationCount > 0 ? `Notifications (${pendingApplicationCount})` : 'Notifications'}
+              title="Notifications"
+              onClick={() => setActiveTab('community')}
+            >
               🔔
               {pendingApplicationCount > 0 && (
-                <span className="notification-badge">{pendingApplicationCount}</span>
+                <span className="notification-badge" aria-hidden="true">{pendingApplicationCount}</span>
               )}
             </button>
-            <button className="nav-btn">⚙️</button>
             <div className="user-profile">
               <span className="user-name">{currentUser.username}</span>
-              <span className="user-session-id">{currentUser.sessionId}</span>
             </div>
-            <button className="logout-btn" onClick={onLogout} title="Logout">
+            <button className="logout-btn" aria-label="Logout" onClick={onLogout} title="Logout">
               🚪
             </button>
           </div>
@@ -255,7 +309,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
 
         <div className="app-workspace">
           {/* Sidebar */}
-          {showSidebar && (
+          {showSidebar && activeTabHasSidebar && (
             <aside className={`sidebar${isMobile ? ' sidebar-overlay' : ''}`}>
               {activeTab === 'studio' && (
                 <Sessions
@@ -329,6 +383,7 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
                   </div>
                 )
             )}
+            {activeTab === 'admin-feedback' && currentUser?.isAdmin && <AdminFeedbackReview />}
           </main>
 
           {/* Right Panel — Studio only (only when in a band) */}
@@ -338,6 +393,46 @@ function AppShell({ currentUser, theme, toggleTheme, onLogout }) {
             </aside>
           )}
         </div>
+        {/* Session Modal */}
+        {sessionModal && (
+          <div
+            className="session-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label={sessionModal === 'create' ? 'New Project' : 'Join Session'}
+            onClick={() => setSessionModal(null)}
+          >
+            <div className="session-modal" onClick={e => e.stopPropagation()}>
+              <h2 className="session-modal-title">
+                {sessionModal === 'create' ? 'New Project' : 'Join Session'}
+              </h2>
+              <input
+                className="session-modal-input"
+                type="text"
+                placeholder={sessionModal === 'create' ? 'Project name…' : 'Session ID…'}
+                value={sessionModalInput}
+                onChange={e => setSessionModalInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSessionModalSubmit()}
+                autoFocus
+              />
+              {sessionModalError && (
+                <p className="session-modal-error" role="alert">{sessionModalError}</p>
+              )}
+              <div className="session-modal-actions">
+                <button className="session-modal-cancel" onClick={() => setSessionModal(null)}>Cancel</button>
+                <button
+                  className="session-modal-confirm"
+                  onClick={handleSessionModalSubmit}
+                  disabled={sessionModalLoading}
+                >
+                  {sessionModalLoading ? 'Working…' : sessionModal === 'create' ? 'Create' : 'Join'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <FeedbackButton activeTab={activeTab} />
       </div>
     </CommentsProvider>
   );
@@ -379,6 +474,7 @@ function App() {
           id: user.id,
           username: user.username,
           avatar: user.avatar,
+          isAdmin: user.isAdmin === true,
           sessionId,
           displayName: `${user.username}-${sessionId}`,
         });
@@ -393,22 +489,36 @@ function App() {
   };
 
   if (authLoading) {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: '1.2rem' }}>Loading…</div>;
+    return (
+      <ToastProvider>
+        <div className="app-loading">
+          <div className="app-loading-logo">🎵</div>
+          <div className="app-loading-name">BandLab Studio</div>
+          <div className="app-loading-spinner" role="status" aria-label="Loading" />
+        </div>
+      </ToastProvider>
+    );
   }
 
   if (!currentUser) {
-    return <Login onLogin={setCurrentUser} initialError={loginError} />;
+    return (
+      <ToastProvider>
+        <Login onLogin={setCurrentUser} initialError={loginError} />
+      </ToastProvider>
+    );
   }
 
   return (
-    <BandProvider currentUser={currentUser}>
-      <AppShell
-        currentUser={currentUser}
-        theme={theme}
-        toggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
-        onLogout={handleLogout}
-      />
-    </BandProvider>
+    <ToastProvider>
+      <BandProvider currentUser={currentUser}>
+        <AppShell
+          currentUser={currentUser}
+          theme={theme}
+          toggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
+          onLogout={handleLogout}
+        />
+      </BandProvider>
+    </ToastProvider>
   );
 }
 

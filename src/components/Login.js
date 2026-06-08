@@ -15,9 +15,16 @@ const AVATARS = ['😎', '🎸', '🎤', '🎹', '🥁', '🎵', '🎼', '🎧',
 const randomAvatar = () => AVATARS[Math.floor(Math.random() * AVATARS.length)];
 const makeSessionId = () => 'sess' + Math.floor(10000 + Math.random() * 90000);
 
-function buildUser(id, name, avatar) {
+function buildUser(id, name, avatar, extras = {}) {
   const sessionId = makeSessionId();
-  return { id, username: name, avatar, sessionId, displayName: `${name}-${sessionId}` };
+  return {
+    id,
+    username: name,
+    avatar,
+    sessionId,
+    displayName: `${name}-${sessionId}`,
+    isAdmin: extras.isAdmin === true,
+  };
 }
 
 function GoogleIcon() {
@@ -104,10 +111,10 @@ function Login({ onLogin, initialError = '' }) {
       try {
         if (isSignup) {
           const user = await apiSignup(email.trim(), password, displayName.trim(), selectedAvatar);
-          onLogin(buildUser(user.id, user.username, user.avatar));
+          onLogin(buildUser(user.id, user.username, user.avatar, { isAdmin: user.isAdmin }));
         } else {
           const user = await apiLogin(email.trim(), password);
-          onLogin(buildUser(user.id, user.username, user.avatar));
+          onLogin(buildUser(user.id, user.username, user.avatar, { isAdmin: user.isAdmin }));
         }
       } catch (err) {
         const isNetworkError = err instanceof TypeError && err.message === 'Failed to fetch';
@@ -132,7 +139,7 @@ function Login({ onLogin, initialError = '' }) {
       const { options, challengeToken } = await apiPasskeyLoginOptions();
       const authResp = await startAuthentication({ optionsJSON: options });
       const result = await apiPasskeyLoginVerify(challengeToken, authResp);
-      onLogin(buildUser(result.user.id, result.user.username, result.user.avatar));
+      onLogin(buildUser(result.user.id, result.user.username, result.user.avatar, { isAdmin: result.user.isAdmin }));
     } catch (err) {
       setError(
         err?.name === 'NotAllowedError'
@@ -158,7 +165,7 @@ function Login({ onLogin, initialError = '' }) {
       const { options, challengeToken } = await apiPasskeySignupOptions(pkEmail.trim(), pkDisplayName.trim(), pkAvatar);
       const attResp = await startRegistration({ optionsJSON: options });
       const result = await apiPasskeySignupVerify(challengeToken, attResp);
-      onLogin(buildUser(result.user.id, result.user.username, result.user.avatar));
+      onLogin(buildUser(result.user.id, result.user.username, result.user.avatar, { isAdmin: result.user.isAdmin }));
     } catch (err) {
       setError(
         err?.name === 'NotAllowedError'

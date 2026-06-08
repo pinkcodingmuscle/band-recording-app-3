@@ -44,12 +44,17 @@ setInterval(() => {
 }, 60_000);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function makeToken(userId) {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+function makeToken(userId, isAdmin = false) {
+  return jwt.sign({ userId, isAdmin }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
 function userView(doc) {
-  return { id: doc._id.toString(), username: doc.displayName, avatar: doc.avatar };
+  return {
+    id: doc._id.toString(),
+    username: doc.displayName,
+    avatar: doc.avatar,
+    isAdmin: doc.isAdmin === true,
+  };
 }
 
 // ── Email / password ──────────────────────────────────────────────────────────
@@ -65,7 +70,7 @@ router.post('/signup', async (req, res) => {
     if (exists) return res.status(409).json({ error: 'Email already in use' });
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await User.create({ email, passwordHash, displayName, avatar: avatar || '🎵' });
-    res.status(201).json({ token: makeToken(user._id.toString()), user: userView(user) });
+    res.status(201).json({ token: makeToken(user._id.toString(), user.isAdmin), user: userView(user) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -80,7 +85,7 @@ router.post('/login', async (req, res) => {
     if (!user || !user.passwordHash) return res.status(401).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    res.json({ token: makeToken(user._id.toString()), user: userView(user) });
+    res.json({ token: makeToken(user._id.toString(), user.isAdmin), user: userView(user) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -179,7 +184,7 @@ router.post('/passkey/signup-verify', async (req, res) => {
       }],
     });
 
-    res.status(201).json({ token: makeToken(user._id.toString()), user: userView(user) });
+    res.status(201).json({ token: makeToken(user._id.toString(), user.isAdmin), user: userView(user) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -243,7 +248,7 @@ router.post('/passkey/login-verify', async (req, res) => {
     passkeyDoc.counter = verification.authenticationInfo.newCounter;
     await user.save();
 
-    res.json({ token: makeToken(user._id.toString()), user: userView(user) });
+    res.json({ token: makeToken(user._id.toString(), user.isAdmin), user: userView(user) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -396,7 +401,7 @@ router.get('/google/callback', async (req, res) => {
       });
     }
 
-    const token = makeToken(user._id.toString());
+    const token = makeToken(user._id.toString(), user.isAdmin);
     res.redirect(`${clientOrigin}?token=${token}`);
   } catch (err) {
     res.redirect(`${clientOrigin}?error=${encodeURIComponent('Google sign-in failed. Please try again.')}`);
@@ -461,7 +466,7 @@ router.get('/microsoft/callback', async (req, res) => {
       });
     }
 
-    const token = makeToken(user._id.toString());
+    const token = makeToken(user._id.toString(), user.isAdmin);
     res.redirect(`${clientOrigin}?token=${token}`);
   } catch (err) {
     res.redirect(`${clientOrigin}?error=${encodeURIComponent('Microsoft sign-in failed. Please try again.')}`);
