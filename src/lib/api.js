@@ -298,27 +298,27 @@ export async function apiFeedbackAdminDelete(id) {
 }
 
 // ── Passkey ───────────────────────────────────────────────────────────────────
-export async function apiPasskeySignupOptions(displayName, avatar) {
+export async function apiPasskeySignupOptions(email, displayName, avatar) {
   const res = await fetch(`${BASE}/api/auth/passkey/signup-options`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName, avatar }),
+    body: JSON.stringify({ email, displayName, avatar }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to get signup options');
   return data;
 }
 
-export async function apiPasskeySignupVerify(displayName, avatar, attestation) {
+export async function apiPasskeySignupVerify(challengeToken, attResp) {
   const res = await fetch(`${BASE}/api/auth/passkey/signup-verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName, avatar, attestation }),
+    body: JSON.stringify({ challengeToken, attResp }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Passkey signup failed');
   setToken(data.token);
-  return data.user;
+  return data;
 }
 
 export async function apiPasskeyLoginOptions() {
@@ -331,14 +331,14 @@ export async function apiPasskeyLoginOptions() {
   return data;
 }
 
-export async function apiPasskeyLoginVerify(assertion) {
+export async function apiPasskeyLoginVerify(challengeToken, authResp) {
   const res = await fetch(`${BASE}/api/auth/passkey/login-verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ assertion }),
+    body: JSON.stringify({ challengeToken, authResp }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Passkey login failed');
   setToken(data.token);
-  return data.user;
+  return data;
 }

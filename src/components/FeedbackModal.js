@@ -30,7 +30,8 @@ function FeedbackModal({ activeTab, onClose, onOpenHistory }) {
   const captureScreenshot = async () => {
     setError('');
     try {
-      const mod = await import('html2canvas');
+      const moduleName = 'html2canvas';
+      const mod = await import(/* @vite-ignore */ moduleName);
       const html2canvas = mod.default || mod;
       const canvas = await html2canvas(document.body, {
         scale: Math.min(window.devicePixelRatio || 1, 2),
